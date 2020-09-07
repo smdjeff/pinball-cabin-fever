@@ -61,7 +61,29 @@ static const uint8_t fastSwitchSolenoid[FASTSWITCH_QTY] = {
 
 void flipperISR(fastSwitch theSwitch, boolean active)
 {
-  if(!gameOn || tilt) return;
+
+  if ( active ) {
+
+    if ( isActiveTimer(MATCH_TMR) ) {
+      matchTimerButton( theSwitch );
+    }
+
+    if ( isActiveTimer(ATTRACT_TMR) ) {
+      attractTimerButton( theSwitch );
+    }
+    
+    if ( ((!gameOn) || (tilt)) ) {
+      return;
+    }
+  }
+  
+  if (crazyMode) {
+    if ( theSwitch == FASTSWITCH_FLIPPER_LEFT ) {
+      theSwitch = FASTSWITCH_FLIPPER_RIGHT;
+    } else {
+      theSwitch = FASTSWITCH_FLIPPER_LEFT;
+    }
+  }
 
   if(active) {
     if(getSolenoidMode( fastSwitchSolenoid[theSwitch] ) == SOLENOID_IDLE_STATE) {
@@ -74,14 +96,14 @@ void flipperISR(fastSwitch theSwitch, boolean active)
 
 void bumperISR(fastSwitch theSwitch, boolean active)
 {
-  if(!gameOn || tilt) return;
+  if(active && (!gameOn || tilt)) return;
 
   if(active) {
     if(getSolenoidMode(fastSwitchSolenoid[theSwitch]) == SOLENOID_IDLE_STATE ) {
       increaseScore(SCORE_ONE_HUNDRED);
       setSolenoidMode( fastSwitchSolenoid[theSwitch] , SOLENOID_ONESHOT_DRIVE_STATE, FOUR_HUNDRETH_SECONDS, 1);
-      setLampMode( LAMP_POP_BUMPER_UPPER , LAMP_FLASH_STATE, EIGTH_SECOND, 2 );
-      setLampMode( LAMP_POP_BUMPER_LOWER , LAMP_FLASH_STATE, EIGTH_SECOND, 2 );
+      setLampMode( LAMP_POP_BUMPER_UPPER , LAMP_FLASH_STATE, EIGTH_SECOND, 3 );
+      setLampMode( LAMP_POP_BUMPER_LOWER , LAMP_FLASH_STATE, EIGTH_SECOND, 3 );
       setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
     }
   } else {

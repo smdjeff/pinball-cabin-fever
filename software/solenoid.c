@@ -32,20 +32,38 @@ static uint16_t solenoidTime[SOLENOID_QTY];
 static uint16_t solenoidStateTime[SOLENOID_QTY];
 static uint8_t solenoidCycles[SOLENOID_QTY];
 
+
+typedef struct {
+  boolean active;
+  solenoid sol;
+  solenoidStates mode;
+  uint16_t time;
+  uint8_t cycles; 
+} solenoidState_t;
+
+static solenoidState_t queuedSolenoid = {0,};
+
+
 static void setSolenoid( solenoid sol, boolean on )
 {
+  if ( nonVolatiles.quiteMode == 2 ) {
+    if ( sol==SOLENOID_BELL_PIN || sol==SOLENOID_KNOCKER_PIN ) {
+      return;
+    }
+  }
+  
   if(on) {
-  	if(sol < SOLENOID_QTY) {
-	    high(SOLENOID_PORT, BIT(solenoidPin[sol]));
-		} else if (sol < SOLENOID_QTY + SOLENOID_QTY_H) {
-		  high(SOLENOID_PORT_H, BIT(solenoidPin[sol]));
-		}
-	 } else {
-	  if(sol < SOLENOID_QTY) {
-		  low(SOLENOID_PORT, BIT(solenoidPin[sol]));
-		} else if (sol < SOLENOID_QTY + SOLENOID_QTY_H) {
-		  low(SOLENOID_PORT_H, BIT(solenoidPin[sol]));
-		}  
+    if(sol < SOLENOID_QTY) {
+      high(SOLENOID_PORT, BIT(solenoidPin[sol]));
+    } else if (sol < SOLENOID_QTY + SOLENOID_QTY_H) {
+      high(SOLENOID_PORT_H, BIT(solenoidPin[sol]));
+    }
+   } else {
+    if(sol < SOLENOID_QTY) {
+      low(SOLENOID_PORT, BIT(solenoidPin[sol]));
+    } else if (sol < SOLENOID_QTY + SOLENOID_QTY_H) {
+      low(SOLENOID_PORT_H, BIT(solenoidPin[sol]));
+    }  
   }   
 }
 
@@ -53,6 +71,17 @@ solenoidStates getSolenoidMode( solenoid sol )
 {
   return solenoidState[sol];
 }
+
+
+void solenoidTimer(timerEvent evt, uint16_t state)
+{
+  if ( queuedSolenoid.active ) {
+    queuedSolenoid.active = FALSE;
+    setSolenoidMode( queuedSolenoid.sol, queuedSolenoid.mode, 
+                     queuedSolenoid.time, queuedSolenoid.cycles );
+  }
+}
+
 
 // Modes supported:
 //  Idle - solenoid inactive
@@ -62,6 +91,23 @@ solenoidStates getSolenoidMode( solenoid sol )
 //  Flash - for hitting a solenoid multiple times in succession
 void setSolenoidMode( solenoid sol, solenoidStates mode, uint16_t time, uint8_t cycles )
 {
+  
+  // prevent brown outs
+  if ( (sol == SOLENOID_BELL) || (sol == SOLENOID_KNOCKER) ) {
+    if ( isActiveTimer( SOLENOID_TMR ) ) {
+      if ( sol == SOLENOID_KNOCKER ) {
+        queuedSolenoid.active = TRUE;
+        queuedSolenoid.sol = sol;
+        queuedSolenoid.mode = mode;
+        queuedSolenoid.time = time;
+        queuedSolenoid.cycles = cycles;
+      }
+      return;
+    } else {
+      setTimer( SOLENOID_TMR, QUARTER_SECOND, 0 );
+    }
+  }
+
   ATOMIC(
     setSolenoid(sol, (mode > SOLENOID_ACTIVE));
     solenoidState[sol] = mode;
@@ -89,7 +135,7 @@ void driveSolenoidsISR(void)
         break;
       case SOLENOID_ONESHOT_DRIVE_STATE:
         if( getSysTime() - solenoidTime[i] > solenoidStateTime[i] ) {
-		        solenoidState[i] = SOLENOID_ONESHOT_COMPLETE_STATE;
+            solenoidState[i] = SOLENOID_ONESHOT_COMPLETE_STATE;
             setSolenoid( i, FALSE);
         }
         break;
@@ -97,21 +143,21 @@ void driveSolenoidsISR(void)
         if( getSysTime() - solenoidTime[i] > ONE_HUNDRETH_SECOND ) {
           solenoidState[i] = SOLENOID_HOLD_PWMOFF_STATE;
           setSolenoid( i, FALSE);
- 				  solenoidTime[i] = getSysTime();
+          solenoidTime[i] = getSysTime();
         }
         break;
       case SOLENOID_HOLD_PWMOFF_STATE:
         if( getSysTime() - solenoidTime[i] > FOUR_HUNDRETH_SECONDS ) {
           solenoidState[i] = SOLENOID_HOLD_PWMON_STATE;
           setSolenoid( i, TRUE);
-				  solenoidTime[i] = getSysTime();
+          solenoidTime[i] = getSysTime();
         }
         break;
       case SOLENOID_FLASH_STATE:
         if( getSysTime() - solenoidTime[i] > solenoidStateTime[i] ) {
           if( --solenoidCycles[i] ) {
             solenoidState[i] = SOLENOID_FLASH_PAUSE_STATE;
-  				  solenoidTime[i] = getSysTime();          
+            solenoidTime[i] = getSysTime();          
           } else {
             solenoidState[i] = SOLENOID_IDLE_STATE;
           }
@@ -121,17 +167,17 @@ void driveSolenoidsISR(void)
       case SOLENOID_FLASH_PAUSE_STATE:
         if( getSysTime() - solenoidTime[i] > solenoidStateTime[i] ) {
             solenoidState[i] = SOLENOID_FLASH_STATE;
-  				  solenoidTime[i] = getSysTime();          
+            solenoidTime[i] = getSysTime();          
             setSolenoid( i, TRUE);                
         }
         break;
       case SOLENOID_IDLE_STATE:
       case SOLENOID_ACTIVE:
-	  	case SOLENOID_ONESHOT_COMPLETE_STATE:
+      case SOLENOID_ONESHOT_COMPLETE_STATE:
       default:
         // do nothing - steady state
         break;
-  	}
+    }
   }
 }
 

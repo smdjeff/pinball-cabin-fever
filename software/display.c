@@ -40,48 +40,95 @@ void writeDisplay( uint8_t reg, uint8_t data )
   RESTORE_INTS();
 }
 
-void resetDisplay(void)
+void bootDisplay(void)
 {
   writeDisplay( DISPLAY_TEST, 0x1 );  
-  __delay_ms(1000);
+  __delay_ms(10000);
   writeDisplay( DISPLAY_TEST, 0x0 );  
+  
+  resetDisplay();
+}
 
-  writeDisplay( DISPLAY_MODE, 0x00 );		// no font decode all digits
-  writeDisplay( DISPLAY_SHUTDOWN, 1 );		// normal op
-  writeDisplay( DISPLAY_SCAN, 0x7 ); 		// scan all digits
-  writeDisplay( DISPLAY_INTENSITY, 0xF );	// max
+void resetDisplay(void)
+{
+  writeDisplay( DISPLAY_MODE, 0x00 );   // no font decode all digits
+  writeDisplay( DISPLAY_SHUTDOWN, 1 );    // normal op
+  writeDisplay( DISPLAY_SCAN, 0x7 );    // scan all digits
+  writeDisplay( DISPLAY_INTENSITY, 0xF ); // max
 
   displayClear();
 }
 
+void displayBCD(uint8_t *bcd, uint8_t size)
+{
+  uint8_t i;
+  for (i=0; i<8; i++) {
+    writeDisplayNum(DISPLAY_DIG0 + i, bcd[i]);
+  }
+}
+
+
 // show large numeric value, this update is slow and
 //  incurs significant overhead due to divides and modulus
 //  use for debugging and initialization only
-void updateDisplay(uint32_t value)
+void displayLong(uint32_t value, uint8_t digits)
 {
-	writeDisplayNum( DISPLAY_DIG7, value % 10 );
-	writeDisplayNum( DISPLAY_DIG6, (value % 100) / 10 );
-	writeDisplayNum( DISPLAY_DIG5, (value % 1000) / 100 );
-	writeDisplayNum( DISPLAY_DIG4, (value % 10000) / 1000 );
-	writeDisplayNum( DISPLAY_DIG3, (value % 100000) / 10000 );
-	writeDisplayNum( DISPLAY_DIG2, (value % 1000000) / 100000 );
-	writeDisplayNum( DISPLAY_DIG1, (value % 10000000) / 1000000 );
-	writeDisplayNum( DISPLAY_DIG0, (value % 100000000) / 10000000 );
+  uint8_t i;
+  uint32_t j = 10;
+  uint32_t k = 1;
+  for (i=0; i<8 && i<digits; i++) {
+    writeDisplayNum( DISPLAY_DIG7 - i, (value % j) / k );
+    j *= 10;
+    k *= 10;
+  }
 }
 
 
 void displayBinary(uint8_t value)
 {
-	writeDisplayNum( DISPLAY_DIG7, (value & BIT(0))?1:0 );
-	writeDisplayNum( DISPLAY_DIG6, (value & BIT(1))?1:0 );
-	writeDisplayNum( DISPLAY_DIG5, (value & BIT(2))?1:0 );
-	writeDisplayNum( DISPLAY_DIG4, (value & BIT(3))?1:0 );
-	writeDisplayNum( DISPLAY_DIG3, (value & BIT(4))?1:0 );
-	writeDisplayNum( DISPLAY_DIG2, (value & BIT(5))?1:0 );
-	writeDisplayNum( DISPLAY_DIG1, (value & BIT(6))?1:0 );
-	writeDisplayNum( DISPLAY_DIG0, (value & BIT(7))?1:0 );
+  writeDisplayNum( DISPLAY_DIG7, (value & BIT(0))?1:0 );
+  writeDisplayNum( DISPLAY_DIG6, (value & BIT(1))?1:0 );
+  writeDisplayNum( DISPLAY_DIG5, (value & BIT(2))?1:0 );
+  writeDisplayNum( DISPLAY_DIG4, (value & BIT(3))?1:0 );
+  writeDisplayNum( DISPLAY_DIG3, (value & BIT(4))?1:0 );
+  writeDisplayNum( DISPLAY_DIG2, (value & BIT(5))?1:0 );
+  writeDisplayNum( DISPLAY_DIG1, (value & BIT(6))?1:0 );
+  writeDisplayNum( DISPLAY_DIG0, (value & BIT(7))?1:0 );
 }
 
+/*
+non-functioning
+void displayText(const uint8_t* str)
+{
+  const displayChars displayLetters[] = {
+    DISP_A, DISP_B, DISP_C, DISP_D, DISP_E, DISP_F, DISP_G, DISP_H, DISP_I, DISP_J, DISP_K, DISP_L, DISP_M,
+    DISP_N, DISP_O, DISP_P, DISP_Q, DISP_R, DISP_S, DISP_T, DISP_U, DISP_V, DISP_W, DISP_X, DISP_Y, DISP_Z
+  };
+  const displayChars displayNumbers[] = {
+    DISP_ZERO, DISP_ONE, DISP_TWO, DISP_THREE, DISP_FOUR, DISP_FIVE, 
+    DISP_SIX, DISP_SEVEN, DISP_EIGHT, DISP_NINE
+  };
+  uint8_t i;
+  
+  for (i=0;(i<8)&&(str[i]!='\0'); i++) {
+    displayChars dispChar = DISP_BLANK;
+    uint8_t ch = str[i];
+    if ( ch>='a' && ch<='z' ) {
+      dispChar = displayLetters[ch-'a'];
+    } else if ( ch>='A' && ch<='Z' ) {
+      dispChar = displayLetters[ch-'A'];
+    } else if ( ch>= '0' && ch<='9' ) {
+      dispChar = displayNumbers[ch-'0'];
+    } else if ( ch=='-' ) {
+      dispChar = DISP_DASH;
+    } else if ( ch=='=' ) {
+      dispChar = DISP_BARS;
+    }
+    
+    writeDisplay(DISPLAY_DIG0 + i, dispChar);
+  }
+}
+*/
 
 void displayString(uint8_t dig0, uint8_t dig1, uint8_t dig2, uint8_t dig3, 
                    uint8_t dig4, uint8_t dig5, uint8_t dig6, uint8_t dig7)

@@ -3,10 +3,15 @@
 typedef void (*timerCallback)(timerEvent, uint16_t);
 
 const timerCallback timerCallbacks[TIMER_QTY] = {
+  attractLamps,
   attractTimer,
-  tiltTimer,
+  matchTimer,
   bearTimer,
   gameTimer,
+  crazyModeTimer,
+  spinTimer,
+  boxTimer,
+  solenoidTimer
 };
 
 uint16_t timerTime[TIMER_QTY];
@@ -18,20 +23,20 @@ uint16_t sysTime = 0;
 
 void __delay_us(uint32_t us)
 {
-	volatile uint32_t i;
-	for (i=0; i<us; i+=40)
-	{
+  volatile uint32_t i;
+  for (i=0; i<us; i+=40)
+  {
     // not used for precise time, so accuracy is not necessary
-	}
+  }
 }
 
 void __delay_ms(uint32_t ms)
 {
-	volatile uint32_t i;
-	for (i=0; i<ms; i++)
-	{
-		__delay_us( 1000 );
-	}
+  volatile uint32_t i;
+  for (i=0; i<ms; i++)
+  {
+    __delay_us( 1000 );
+  }
 }
 
 
@@ -45,6 +50,11 @@ ISR(TIMER0_COMP_vect)
   driveFastSwitchISR();
   driveSolenoidsISR();
   driveSlowSwitchISR();
+}
+
+ISR(TIMER2_COMP_vect)
+{
+  driveLampISR();
 }
 
 uint16_t getSysTime(void)
@@ -80,7 +90,21 @@ void setTimer( timerEvent timer, uint16_t time, uint16_t data )
   timerData[timer] = data;
 }
 
+void setIfActiveTimer( timerEvent timer, uint16_t data )
+{
+  if ( timerTime[timer] > 0) {
+    timerTime[timer] = 1;
+    timerData[timer] = data;
+  }
+}
+
+boolean isActiveTimer( timerEvent timer )
+{
+  return ( timerTime[timer] );
+}
+
 void cancelTimer(timerEvent timer)
 {
   timerTime[timer] = 0;
 }
+

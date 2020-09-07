@@ -3,30 +3,31 @@
 
 #include <stdio.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 
 typedef uint8_t boolean;
-#define TRUE 	1
-#define FALSE 	0
+#define TRUE    1
+#define FALSE   0
 
 #define BIT(x) (1<<(x))
 
-#define output(ddr,mask)		\
+#define output(ddr,mask)        \
   do {                          \
-    ddr |= (mask);      		\
+    ddr |= (mask);              \
   } while (0)
-#define input(ddr,mask)      	\
+#define input(ddr,mask)         \
   do {                          \
-    ddr &= ~(mask);     		\
+    ddr &= ~(mask);             \
   } while (0)
-#define high(port,mask)       	\
+#define high(port,mask)         \
   do {                          \
-    port |= (mask);       		\
+    port |= (mask);             \
   } while (0)
-#define low(port,mask)        	\
+#define low(port,mask)          \
   do {                          \
-    port &= ~(mask);      		\
+    port &= ~(mask);            \
   } while (0)
-#define read(pin,mask)       	\
+#define read(pin,mask)          \
   pin & (mask)
 
 #define ENABLE_INTS()  do{ sei(); } while(0)
@@ -44,16 +45,16 @@ typedef uint8_t boolean;
 //PD4..7 = highspeed switches
 
 
-#define SPI_PORT			PORTB
-#define SPI_DDR				DDRB
-#define SPI_PIN				PINB
-#define SPI_MOSI			BIT(5)
-#define SPI_MISO			BIT(6)
-#define SPI_SCK				BIT(7)
+#define SPI_PORT            PORTB
+#define SPI_DDR             DDRB
+#define SPI_PIN             PINB
+#define SPI_MOSI            BIT(5)
+#define SPI_MISO            BIT(6)
+#define SPI_SCK             BIT(7)
 
 #define FASTSWITCH_PORT     PORTD
 #define FASTSWITCH_DDR      DDRD
-#define FASTSWITCH_PIN		PIND
+#define FASTSWITCH_PIN      PIND
 #define FASTSWITCH_MASK     (BIT(4)|BIT(5)|BIT(6)|BIT(7))
 #define FASTSWITCH_QTY      4
 
@@ -61,25 +62,23 @@ typedef uint8_t boolean;
 #define BEAR_DDR      DDRB
 #define BEAR_PIN      PINB
 #define BEAR_MASK     (BIT(4))
-#define BEAR_PWM_OPEN     1850
-#define BEAR_PWM_CLOSED   1675
 
 #define SOLENOID_PORT       PORTA
-#define SOLENOID_DDR		DDRA
+#define SOLENOID_DDR        DDRA
 #define SOLENOID_MASK       0xFF
-#define SOLENOID_QTY		8
+#define SOLENOID_QTY        8
 #define SOLENOID_PORT_H     PORTC
-#define SOLENOID_DDR_H		DDRC
+#define SOLENOID_DDR_H      DDRC
 #define SOLENOID_MASK_H     (BIT(6)|BIT(7))
-#define SOLENOID_QTY_H		2
+#define SOLENOID_QTY_H      2
 
 #define BUS_CONTROL_PORT    PORTB
-#define BUS_CONTROL_DDR		DDRB
+#define BUS_CONTROL_DDR     DDRB
 #define BUS_SOUND_CS        BIT(0)
 #define BUS_DISPLAY_LOAD    BIT(1)
 
 #define IO_CONTROL_PORT     PORTB
-#define IO_CONTROL_DDR		DDRB
+#define IO_CONTROL_DDR      DDRB
 #define IO_CONTROL_RESET    BIT(3)
 #define IO_CS_PORT          PORTC
 #define IO_CS_DDR           DDRC
@@ -130,12 +129,12 @@ typedef uint8_t boolean;
 #define DISPLAY_SHUTDOWN  0xC
 #define DISPLAY_TEST      0xF
 
-#define DISPLAY_FONT_DASH	10
-#define DISPLAY_FONT_E		11
-#define DISPLAY_FONT_H		12
-#define DISPLAY_FONT_L		13
-#define DISPLAY_FONT_P		14
-#define DISPLAY_FONT_BLANK	15
+#define DISPLAY_FONT_DASH   10
+#define DISPLAY_FONT_E      11
+#define DISPLAY_FONT_H      12
+#define DISPLAY_FONT_L      13
+#define DISPLAY_FONT_P      14
+#define DISPLAY_FONT_BLANK  15
 
 
 
@@ -146,22 +145,39 @@ typedef enum
   THREE_HUNDRETH_SECONDS = 6,
   FOUR_HUNDRETH_SECONDS = 8,
   FIVE_HUNDRETH_SECONDS = 10,
+  TEN_HUNDRETH_SECONDS = 20,
   EIGTH_SECOND = 25,
   QUARTER_SECOND = 50,
   HALF_SECOND = 100,
   ONE_SECOND = 200,
   TWO_SECONDS = 400,
   THREE_SECONDS = 600,
+  FOUR_SECONDS = 800,
   FIVE_SECONDS = 1000
 } systimeDurations;
 
 typedef enum {
+  ATTRACT_LAMP_TMR,
   ATTRACT_TMR,
-  TILT_TMR,
+  MATCH_TMR,
   BEAR_TMR,
   GAME_TMR,
+  CRAZY_TMR,
+  SPIN_TMR,
+  BOX_TMR,
+  SOLENOID_TMR,
   TIMER_QTY,
 } timerEvent;
+
+void attractLamps(timerEvent evt, uint16_t data);
+void attractTimer(timerEvent evt, uint16_t data);
+void matchTimer(timerEvent evt, uint16_t data);
+void bearTimer(timerEvent evt, uint16_t data);
+void gameTimer(timerEvent evt, uint16_t state);
+void crazyModeTimer(timerEvent evt, uint16_t state);
+void spinTimer(timerEvent evt, uint16_t state);
+void boxTimer(timerEvent evt, uint16_t state);
+void solenoidTimer(timerEvent evt, uint16_t state);
 
 
 //////////////////////////////////
@@ -196,13 +212,11 @@ typedef enum
   SWITCH_TEST_PLUS = 21,
   SWITCH_TEST_MINUS = 22,
   SWITCH_TEST_ESCAPE = 23,
-	SWITCH_QTY = 24
+  SWITCH_QTY = 24
 } slowSwitch;
 
 void driveSlowSwitchISR(void);
 void driveSlowSwitches(void);
-
-void tiltTimer(timerEvent evt, uint16_t data);
 
 
 //////////////////////////////////
@@ -284,9 +298,9 @@ typedef enum
   LAMP_BEAR_ARROW = 18,
   LAMP_BEAR_MOUTH = 19,
   LAMP_LANE_LEFT1 = 20,
-	LAMP_LANE_LEFT2 = 21,
+  LAMP_LANE_LEFT2 = 21,
   LAMP_LANE_RIGHT1 = 22,
-	LAMP_LANE_RIGHT2 = 23,
+  LAMP_LANE_RIGHT2 = 23,
   LAMP_POP_BUMPER_UPPER = 24,
   LAMP_POP_BUMPER_LOWER = 25,
   LAMP_RIVER_ARROW_1 = 26,
@@ -295,24 +309,29 @@ typedef enum
   LAMP_RIVER_ARROW_4 = 29,
   LAMP_RIVER_ARROW_5 = 30,
   LAMP_RIVER_ARROW_6 = 31,
+  LAMP_LAST_PLAYFIELD = 31,
   LAMP_BACKBOX_TILT = 32,
   LAMP_BACKBOX_GAME_OVER = 33,
-  LAMP_BACKBOX_MATCH = 34,
-  LAMP_UNUSED_1 = 35,
-  LAMP_UNUSED_2 = 36,
-  LAMP_UNUSED_3 = 37,
-  LAMP_UNUSED_4 = 38,
-  LAMP_QTY = 34
+  LAMP_BACKBOX_RIVER = 34,
+  LAMP_BACKBOX_CABIN = 35,
+  LAMP_BACKBOX_BEAR_1 = 36,
+  LAMP_BACKBOX_BEAR_2 = 37,
+  LAMP_BACKBOX_BEAR_3 = 38,
+  LAMP_PLAYFIELD_GI = 39,  
+  LAMP_LAST = 39,
+  LAMP_QTY = 40
 } lamp;
 
 typedef enum {
   LAMP_OFF_STATE = 0,
-	LAMP_BLINK_OFF_STATE,
-  LAMP_FLASH_PAUSE_STATE,
-	// all off states must be before LAMP_ON_STATE
+  LAMP_BLINK_OFF_STATE,
+  LAMP_FLASH_INVERT_STATE, 
+  LAMP_FADE_UP_STATE,
+  LAMP_FADE_DOWN_STATE,
+  LAMP_FLASH_STATE, // flash is inverted blink
+  LAMP_BLINK_STATE, // blink off first
   LAMP_ON_STATE,
-  LAMP_BLINK_ON_STATE,
-	LAMP_FLASH_STATE
+  LAMP_BLINK_ON_STATE, // blink on first
 } lampStates;
 
 // Use infinite for time and/or cycles
@@ -321,11 +340,21 @@ typedef enum {
 lampStates getLampMode( lamp theLamp );
 void setLampMode( lamp theLamp, lampStates mode, uint16_t time, uint8_t cycles );
 void driveLamps(void);
-
+void driveLampISR(void);
 
 //////////////////////////////////
 // display
 //////////////////////////////////
+
+//  -    a
+// | |  f b 
+//  -    g
+// | |  e c
+//  - .  d  
+//
+// bits
+// 7 6 5 4 3 2 1 0
+// p a b c d e f g
 
 typedef enum {
   DISP_BLANK = 0x00,
@@ -351,7 +380,7 @@ typedef enum {
   DISP_J = 0x3c,
   DISP_K = 0x37,  //better representation possible??
   DISP_L = 0x0e,
-  DISP_M1 = 0x15, //better representation possible??
+  DISP_M = 0x15, //better representation possible??
   DISP_M2 = 0x11,
   DISP_N = 0x15,
   DISP_O = 0x7e,
@@ -360,24 +389,54 @@ typedef enum {
   DISP_R = 0x05,
   DISP_S = 0x5b,
   DISP_T = 0x70, //better representation possible??
-  DISP_U = 0x1c,
+  DISP_U = 0x1c,  // short
+  DISP_U2 = 0x3e, // tall
   DISP_V = 0x3e, //better representation possible??
-  DISP_W1 = 0x1c, //better representation possible??
+  DISP_W = 0x1c, //better representation possible??
   DISP_W2 = 0x18,
   DISP_X = 0x37,  //better representation possible??
   DISP_Y = 0x3b,
   DISP_Z = 0x6d,  //better representation possible??
+  DISP_DASH = 0x01,
+  DISP_BARS = 0x49
 } displayChars;
 
+void displayBCD(uint8_t *bcd, uint8_t size);
 void displayBinary(uint8_t value);
 void writeDisplay( uint8_t reg, uint8_t data );
 void writeDisplayNum( uint8_t reg, uint8_t data );
+void bootDisplay(void);
 void resetDisplay(void);
-void updateDisplay(uint32_t value);
+void displayLong(uint32_t value,uint8_t digits);
+void displayText(const uint8_t* str);
 void displayString(uint8_t dig0, uint8_t dig1, uint8_t dig2, uint8_t dig3, 
                    uint8_t dig4, uint8_t dig5, uint8_t dig6, uint8_t dig7);
 void displayClear(void);
 
+
+//////////////////////////////////
+// sounds
+//////////////////////////////////
+
+typedef enum {
+  SOUND_STOP = 0x00,
+  SOUND_SNAKE = 0x01,       // rattler
+  SOUND_SPINNER = 0x02,     // water park screams
+  SOUND_BEAR_TARGETS = 0x03,  // large animal grunt
+  SOUND_BEAR_OPEN = 0x04,   // grizzly growl
+  SOUND_BEAR_CHEW = 0x05,   // large animal chew
+  SOUND_LOGS = 0x06,        // beavers (or music)
+  SOUND_BONUS = 0x07,       // buzz saw
+  SOUND_LIZARD = 0x08,      // lizard?
+  SOUND_DRAIN = 0x09,       // drop into water
+  SOUND_GAME_START = 0x0A,  // ?
+  SOUND_GAME_END = 0x0B,    // ?
+  SOUND_MATCHING = 0x0C,    // clicks
+  SOUND_BACKGROUND_STOP = 0x80,  
+  SOUND_BACKGROUND = 0x81,  // babbling brook
+} sounds_t;
+
+void playSound( sounds_t sound );
 
 //////////////////////////////////
 // IO
@@ -402,37 +461,84 @@ void __delay_ms(uint32_t ms);
 uint16_t getSysTime(void);
 void setTimer( timerEvent timer, uint16_t time, uint16_t data );
 void cancelTimer(timerEvent timer);
+void setIfActiveTimer( timerEvent timer, uint16_t data );
+boolean isActiveTimer( timerEvent timer );
 void driveTimers(void);
 
+void bearPWM(uint16_t width);
 
 //////////////////////////////////
 // game play
 //////////////////////////////////
 
-extern const uint8_t FINALBALL;
+typedef uint8_t score_t[8];
+
+typedef struct {
+  score_t highScore;
+  uint16_t headOpen;
+  uint16_t headClose;
+  uint8_t quiteMode;
+  uint8_t tiltSensitivity;
+  uint8_t ballsPerGame;
+  uint8_t soundBoard;
+  uint8_t coinsPerGame;
+  uint16_t gamesPlayed;
+  uint16_t freeGameMatch;
+  uint16_t freeGameHighScore;
+  uint8_t checkSum;
+} nonVolatiles_t;
+
+extern const uint8_t tiltSenseMax;
 extern uint8_t ballInPlay;
 extern boolean tilt;
+extern uint8_t tiltSense;
 extern boolean gameOn;
+extern boolean ballIsLoading;
+extern uint8_t multiplier;
+extern boolean crazyMode;
+extern uint16_t bearTestPWM;
+extern nonVolatiles_t nonVolatiles;
 
 typedef enum {
   BEAR_OPEN,
   BEAR_CHEW_CLOSE,
   BEAR_CHEW_OPEN,
   BEAR_EJECT,
+  BEAR_EJECT_1,
+  BEAR_EJECT_2,
   BEAR_CLOSE,
+  BEAR_TEST
 } bearStates;
 
 typedef enum {
+  GAME_BALL_LOAD,
+  GAME_BALL_AGAIN,
+  GAME_BALL_AGAIN_1,
   GAME_SCORE,
+  GAME_FREE_CREDIT,
   GAME_TILT
 } gameStates;
 
-void attractTimer(timerEvent evt, uint16_t data);
-void bearTimer(timerEvent evt, uint16_t data);
-void gameTimer(timerEvent evt, uint16_t state);
+typedef enum {
+  ATTRACT_PLAY,
+  ATTRACT_PINBALL,
+  ATTRACT_SCORE,
+  ATTRACT_NEW_HIGH_SCORE,
+  ATTRACT_HIGH_SCORE,
+  ATTRACT_HIGH_SCORE_1,
+  ATTRACT_GAME_OVER,
+  ATTRACT_CREDITS,
+  ATTRACT_CREDITS_1,
+  ATTRACT_INSERT_COINS,
+  ATTRACT_INSERT_COINS_1,
+  ATTRACT_INSERT_COINS_2,
+  ATTRACT_BLANK,
+  ATTRACT_FREE
+} attractStates;
 
 void resetGame(void);
 void startGame(void);
+void nextBall(void);
 void gameOver(void);
 
 
@@ -442,11 +548,26 @@ extern const uint8_t SCORE_FIVE_HUNDRED[8];
 extern const uint8_t SCORE_ONE_THOUSAND[8];
 extern const uint8_t SCORE_FIVE_THOUSAND[8];
 
+void displayCredits(void);
+void increaseCredits(uint8_t i, boolean coinMode);
+boolean decreaseCredits(void);
+void resetCredits(void);
+
 void displayScore(void);
 void increaseScore(const uint8_t *bcdVal);
 uint32_t getScore(void);
 void resetScore(void);
+
+void loadNonVolatiles(void);
+void saveNonVolatiles(void);
+void resetNonVolatiles(void);
+
 void setMultiplier(uint8_t mult);
+
+void configMode(slowSwitch sw);
+void cancelBoxTimer(void);
+void attractTimerButton( fastSwitch theSwitch );
+void matchTimerButton( fastSwitch theSwitch );
 
 
 #endif //__TWEENPIN_H__

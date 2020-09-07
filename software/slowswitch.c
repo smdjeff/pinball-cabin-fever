@@ -60,14 +60,17 @@ typedef void (*slowSwitchTrig)(slowSwitch, boolean);
 
 void targetBearTrig(slowSwitch theSwitch, boolean active);
 void targetLogjamTrig(slowSwitch theSwitch, boolean active);
-void targetMiscTrig(slowSwitch theSwitch, boolean active);
+void targetSnakeTrig(slowSwitch theSwitch, boolean active);
 void bearCaptureTrig(slowSwitch theSwitch, boolean active);
-void gameTrig(slowSwitch theSwitch, boolean active);
+void drainTrig(slowSwitch theSwitch, boolean active);
+void coinTrig(slowSwitch theSwitch, boolean active);
+void startTrig(slowSwitch theSwitch, boolean active);
 void tiltTrig(slowSwitch theSwitch, boolean active);
+void spinnerTrig(slowSwitch theSwitch, boolean active);
 void laneTrig(slowSwitch theSwitch, boolean active);
 void testTrig(slowSwitch theSwitch, boolean active);
 
-// must match fastswitch enum order
+// must match slowswitch enum order
 static const slowSwitchTrig slowSwitchFunctions[SWITCH_QTY] = {
   targetBearTrig,
   targetBearTrig,
@@ -79,14 +82,14 @@ static const slowSwitchTrig slowSwitchFunctions[SWITCH_QTY] = {
   targetLogjamTrig,
   targetLogjamTrig,
   targetLogjamTrig,
-  targetMiscTrig,
-  targetMiscTrig,
+  targetSnakeTrig,
+  targetSnakeTrig,
   bearCaptureTrig,
-  gameTrig,
-  gameTrig,
-  gameTrig,
+  drainTrig,
+  startTrig,
+  coinTrig,
   tiltTrig,
-  laneTrig,
+  spinnerTrig,
   laneTrig,
   laneTrig,
   testTrig,
@@ -103,21 +106,21 @@ void testSwitch(void)
   uint8_t i;
 
   for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-	{
-//		scan[i] = readIO( i, IO_INTF );
+    {
+//      scan[i] = readIO( i, IO_INTF );
     scan[i] = readIO( i, IO_GPIO );
 //      scan[i] = readIO( i, IO_DIR );
 //      scan[i] = readIO( i, IO_GPPU );
 //      scan[i] = readIO( i, IO_IPOL );
   }
-	writeDisplay( DISPLAY_DIG0, DISP_BLANK);
-	writeDisplay( DISPLAY_DIG1, DISP_BLANK);
-	writeDisplayNum( DISPLAY_DIG2, scan[2] >> 4);
-	writeDisplayNum( DISPLAY_DIG3, scan[2] & 0x0F);
-	writeDisplayNum( DISPLAY_DIG4, scan[1] >> 4);
-	writeDisplayNum( DISPLAY_DIG5, scan[1] & 0x0F);
-	writeDisplayNum( DISPLAY_DIG6, scan[0] >> 4);
-	writeDisplayNum( DISPLAY_DIG7, scan[0] & 0x0F);
+    writeDisplay( DISPLAY_DIG0, DISP_S);
+    writeDisplay( DISPLAY_DIG1, DISP_BLANK);
+    writeDisplayNum( DISPLAY_DIG2, scan[2] >> 4);
+    writeDisplayNum( DISPLAY_DIG3, scan[2] & 0x0F);
+    writeDisplayNum( DISPLAY_DIG4, scan[1] >> 4);
+    writeDisplayNum( DISPLAY_DIG5, scan[1] & 0x0F);
+    writeDisplayNum( DISPLAY_DIG6, scan[0] >> 4);
+    writeDisplayNum( DISPLAY_DIG7, scan[0] & 0x0F);
 }
 
 //io interrupt
@@ -130,8 +133,8 @@ void testSwitch(void)
 
 
   for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-	{
-//		scan[i] = readIO( i, IO_INTF );
+    {
+//      scan[i] = readIO( i, IO_INTF );
     scan[i] = readIO( i, IO_GPIO );
   }
   for ( i = 0; i < SWITCH_QTY; i++ ) {
@@ -146,8 +149,8 @@ break;
   }
 
   for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-	{
-		lastScan[i] = scan[i];
+    {
+        lastScan[i] = scan[i];
   }
    
 }*/
@@ -162,8 +165,7 @@ void driveSlowSwitchISR(void)
   boolean doCheck = FALSE;
   uint8_t i;
 
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-	{
+  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
     scan[i] = readIO( i, IO_GPIO );
     if(scan[i]) { doCheck = TRUE; }
   }
@@ -174,15 +176,15 @@ void driveSlowSwitchISR(void)
       switchFlags[i] = TRUE;
     }
   }  
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-	{
-		lastScan[i] = scan[i];
+  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
+    lastScan[i] = scan[i];
   }
 }
 
 void driveSlowSwitches(void)
 {
   uint8_t i;
+  slowSwitchTrig func;
   DECLARE_INT_STATE;
 
   for ( i = 0; i < SWITCH_QTY; i++ ) {
@@ -190,7 +192,10 @@ void driveSlowSwitches(void)
     if( switchFlags[i] ) {
       switchFlags[i] = FALSE;
       RESTORE_INTS();
-      slowSwitchFunctions[i](i,TRUE);
+      func = slowSwitchFunctions[i];
+      if ( (!tilt) || (func==drainTrig) ) {
+        func(i,TRUE);
+      }
     } else {
       RESTORE_INTS();
     }
@@ -205,9 +210,12 @@ void targetBearTrig(slowSwitch theSwitch, boolean active)
 
   if(!gameOn) return;
 
+  increaseScore(SCORE_ONE_HUNDRED);
+
+  playSound( SOUND_BEAR_TARGETS );
+
   if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
-    increaseScore(SCORE_ONE_HUNDRED);
   } else {
     return;
   }
@@ -217,12 +225,16 @@ void targetBearTrig(slowSwitch theSwitch, boolean active)
       return;
     }
   }
+  
   // all lamps must be lit
   increaseScore(SCORE_ONE_THOUSAND);
-  setTimer(BEAR_TMR, HALF_SECOND,BEAR_OPEN);
-  setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_ON_STATE, HALF_SECOND, INFINITE );
+  playSound( SOUND_BEAR_OPEN );
+  setTimer(BEAR_TMR, ONE_HUNDRETH_SECOND, BEAR_OPEN);
+  setTimer(BOX_TMR, QUARTER_SECOND, 0);
+  setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
+  setLampMode( LAMP_BEAR_MOUTH, LAMP_ON_STATE, 0, INFINITE );
   for(i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
-    setLampMode(i, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
+    setLampMode(i, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   }
 }
 
@@ -232,9 +244,11 @@ void targetLogjamTrig(slowSwitch theSwitch, boolean active)
 
   if(!gameOn) return;
 
+  increaseScore(SCORE_ONE_HUNDRED);
+  playSound( SOUND_LOGS );
+
   if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
-    increaseScore(SCORE_ONE_HUNDRED);
   } else {
     return;
   }
@@ -247,23 +261,40 @@ void targetLogjamTrig(slowSwitch theSwitch, boolean active)
 
   // all lamps must be lit
   increaseScore(SCORE_ONE_THOUSAND);
+  playSound( SOUND_BONUS );
   for(i = LAMP_TARGET_2_L; i <= LAMP_TARGET_2_M; i++) {
-    setLampMode(i, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
+    setLampMode(i, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   }
 
+  if ( multiplier < 6 ) 
+  {
+    multiplier++;
+    setLampMode(LAMP_BONUS_1 + multiplier - 2, LAMP_OFF_STATE, INFINITE, 1);
+    setLampMode(LAMP_BONUS_1 + multiplier - 1, LAMP_ON_STATE, INFINITE, 1);
+    setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
+  } else {
+    if ( !crazyMode ) {
+      crazyMode = TRUE;
+      setTimer(CRAZY_TMR, ONE_HUNDRETH_SECOND, 0);
+      setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, EIGTH_SECOND, 3);
+    }
+  }
 
 }
 
-// upper and lower
-void targetMiscTrig(slowSwitch theSwitch, boolean active)
+// upper and lower snake switch
+void targetSnakeTrig(slowSwitch theSwitch, boolean active)
 {
   uint8_t i;
 
   if(!gameOn) return;
+  
+  increaseScore(SCORE_ONE_HUNDRED);
+ 
+  playSound( SOUND_SNAKE );
  
   if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
-    increaseScore(SCORE_ONE_HUNDRED);
   } else {
     return;
   }
@@ -276,8 +307,8 @@ void targetMiscTrig(slowSwitch theSwitch, boolean active)
 
   // all lamps must be lit
   increaseScore(SCORE_ONE_THOUSAND);
-  setLampMode(LAMP_TARGET_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
-  setLampMode(LAMP_TARGET_UPPER, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
+  setLampMode(LAMP_TARGET_LOWER, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
+  setLampMode(LAMP_TARGET_UPPER, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   setLampMode(LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
 }
 
@@ -285,94 +316,98 @@ void bearCaptureTrig(slowSwitch theSwitch, boolean active)
 {
   if(!gameOn) return;
   
-  increaseScore(SCORE_ONE_HUNDRED);
-  setLampMode(LAMP_BEAR_MOUTH, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
-  setTimer(BEAR_TMR, EIGTH_SECOND,BEAR_CHEW_CLOSE);
+  // debounce (blinking means, we're trying to eject
+  if ( (getLampMode(LAMP_BEAR_MOUTH)!=LAMP_OFF_STATE) &&
+       (getLampMode(LAMP_BEAR_MOUTH)!=LAMP_ON_STATE) ) {
+    
+    // eject retry? maybe we need more opening
+    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
+  } else {
+    
+    if ( getLampMode(LAMP_BEAR_ARROW) == LAMP_OFF_STATE ) {
+      // reject shots into bear if the bear isn't actually open.
+      // having trouble with the head not being closed?
+      setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
+    } else {
+      increaseScore(SCORE_FIVE_THOUSAND);
+      playSound( SOUND_BEAR_CHEW );
+      setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW_CLOSE);
+    }
+    
+  }
 }
 
-
-// drain, coin, start
-void gameTrig(slowSwitch theSwitch, boolean active)
+void coinTrig(slowSwitch theSwitch, boolean active)
 {
-  static uint32_t lastScore = 0;
-  uint32_t thisScore;
+  increaseCredits(1,TRUE);
+}
 
-  if(!gameOn && theSwitch == SWITCH_GAME_START) {
-    setSolenoidMode( SOLENOID_BALL_LOADER, SOLENOID_FLASH_STATE, QUARTER_SECOND, 1 );
-    startGame();
-    lastScore = 0;
-  }
-  if(theSwitch == SWITCH_BALL_DRAIN && gameOn) {
-    thisScore = getScore();
-    if( thisScore == lastScore) {
-      displayString( DISP_T, DISP_R, DISP_Y, DISP_A, DISP_G, DISP_A, DISP_I, DISP_N );      
-      setSolenoidMode( SOLENOID_BALL_LOADER, SOLENOID_FLASH_STATE, QUARTER_SECOND, 1 );
+void startTrig(slowSwitch theSwitch, boolean active)
+{
+  if(!gameOn) {
+    if ( decreaseCredits() ) {
+      startGame();
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
     } else {
-      gameOver();
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_INSERT_COINS);    
     }
   }
 }
 
-typedef enum {
-  NO_TILT,
-  TILT_RISK,
-  TILTING,
-} tiltStates;
-tiltStates tiltState = NO_TILT;
+void drainTrig(slowSwitch theSwitch, boolean active)
+{
+  if(gameOn) {
+
+    // hit the loader again (possibly a retry)   
+    setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
+
+    // debounce for about 2 seconds for this logic...
+    if ( !ballIsLoading )
+    {
+      if( (getScore()==0) && (ballInPlay==1) && (!tilt) ) {
+        setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_AGAIN);
+      } else {
+        playSound( SOUND_DRAIN );
+        nextBall();
+      }
+    }
+  }
+}
 
 void tiltTrig(slowSwitch theSwitch, boolean active)
 {
   if(!gameOn) return;
   
-  if(tiltState == NO_TILT) {
-    setTimer(TILT_TMR, QUARTER_SECOND, 0);
-    tiltState = TILT_RISK;
-  } else {  
-//    setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
+  if ( ++tiltSense > nonVolatiles.tiltSensitivity )
+  { 
+    ATOMIC(
     tilt = TRUE;
-    setSolenoidMode( FASTSWITCH_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
-    setSolenoidMode( FASTSWITCH_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
-    displayString( DISP_BLANK, DISP_BLANK, DISP_T, DISP_I, DISP_L, DISP_T, DISP_BLANK, DISP_BLANK );
+    setSolenoidMode( SOLENOID_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
+    setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
+    )
+    setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
     setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
-    tiltState = TILTING;
-    setTimer(TILT_TMR, ONE_SECOND, 0);
   }
 }
 
-void tiltTimer(timerEvent evt, uint16_t data)
+void spinnerTrig(slowSwitch theSwitch, boolean active)
 {
-  tilt = FALSE;
-  tiltState = NO_TILT;
-  setLampMode( LAMP_BACKBOX_TILT, LAMP_OFF_STATE, 0, INFINITE );
-  displayScore();
+  if(!gameOn) return;
+
+  increaseScore(SCORE_ONE_HUNDRED);
+
+  setTimer(SPIN_TMR, ONE_HUNDRETH_SECOND, 1);
 }
 
 void laneTrig(slowSwitch theSwitch, boolean active)
 {
   if(!gameOn) return;
-  
+  // TODO 
 }
 
 void testTrig(slowSwitch theSwitch, boolean active)
 {
-  static uint16_t width = 1500;
-
-  if(theSwitch == SWITCH_TEST_PLUS) {
-    width=BEAR_PWM_OPEN;
-  }
-  if(theSwitch == SWITCH_TEST_MINUS) {
-    width=BEAR_PWM_CLOSED;
-  } 
-  updateDisplay(width);
-  ATOMIC(
-    TCNT1 = 0;
-    high(BEAR_PORT, BEAR_MASK);
-    while(TCNT1 < width) {
-      ;
-    }
-    low(BEAR_PORT, BEAR_MASK);      
-  )
-
-}
-
-
+  configMode(theSwitch);
+}  
+  
+  
