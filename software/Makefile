@@ -14,11 +14,9 @@ HFU = 0xDE
 EFU = 0x05
 
 SRC = $(PRJ).c display.c fastswitch.c io.c lamp.c slowswitch.c solenoid.c util.c
-EXT =
 
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
-CFLAGS    = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE)
-CPPFLAGS = -gdwarf-2 -std=gnu99 -funsigned-char -funsigned-bitfields
+CFLAGS    = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE) -gdwarf-2 -std=gnu99 -funsigned-char -funsigned-bitfields
 
 AVRDUDE = avrdude -c $(PRG) -p $(MCU)
 OBJCOPY = avr-objcopy
@@ -28,9 +26,7 @@ CC      = avr-gcc
 
 CFILES    = $(filter %.c, $(SRC))
 EXTC     := $(foreach dir, $(EXT), $(wildcard $(dir)/*.c))
-CPPFILES  = $(filter %.cpp, $(SRC))
-EXTCPP   := $(foreach dir, $(EXT), $(wildcard $(dir)/*.cpp))
-OBJ       = $(CFILES:.c=.o) $(EXTC:.c=.o) $(CPPFILES:.cpp=.o) $(EXTCPP:.cpp=.o)
+OBJ       = $(CFILES:.c=.o) $(EXTC:.c=.o) 
 
 all: $(PRJ).hex
 
@@ -52,9 +48,6 @@ clean:
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
-
-.cpp.o:
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(PRJ).elf: $(OBJ)
 	$(CC) $(CFLAGS) -o $(PRJ).elf $(OBJ)
