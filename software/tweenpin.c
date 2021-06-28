@@ -114,7 +114,7 @@ int main (void)
   }
 }
 
-const prog_char vertLamps[15][3] = {
+const uint8_t vertLamps[15][3] = {
   {
     LAMP_RIVER_ARROW_6,
     LAMP_TARGET_1_B,
@@ -192,7 +192,7 @@ const prog_char vertLamps[15][3] = {
   }
 };
 
-const prog_char horizLamps[11][6] = {
+const uint8_t horizLamps[11][6] = {
   {
     LAMP_RIVER_ARROW_4,
     LAMP_RIVER_ARROW_3,
@@ -1211,5 +1211,3 @@ void configMode(slowSwitch sw)
       break;
   }
 }
-
-
