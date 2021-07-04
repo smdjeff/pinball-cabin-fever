@@ -2,23 +2,12 @@ PRJ = tweenpin
 MCU = atmega16
 CLK = 8000000
 
-# avr programmer (and port if necessary)
-# e.g. PRG = usbtiny -or- PRG = arduino -P /dev/tty.usbmodem411
-PRG = usbtiny
-
-# fuse values for avr: low, high, and extended
-# these values are from an Arduino Uno (ATMega328P)
-# see http://www.engbedded.com/fusecalc/ for other MCUs and options
-LFU = 0xFF
-HFU = 0xDE
-EFU = 0x05
-
 SRC = $(PRJ).c display.c fastswitch.c io.c lamp.c slowswitch.c solenoid.c util.c
 
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
 CFLAGS    = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE) -gdwarf-2 -std=gnu99 -funsigned-char -funsigned-bitfields
 
-AVRDUDE = avrdude -c $(PRG) -p $(MCU)
+AVRDUDE = avrdude -P usb -c avrispmkII -p m16
 OBJCOPY = avr-objcopy
 OBJDUMP = avr-objdump
 SIZE    = avr-size --format=avr --mcu=$(MCU)
@@ -35,9 +24,6 @@ test:
 
 flash: all
 	$(AVRDUDE) -U flash:w:$(PRJ).hex:i
-
-fuse:
-	$(AVRDUDE) -U lfuse:w:$(LFU):m -U hfuse:w:$(HFU):m -U efuse:w:$(EFU):m
 
 disasm: $(PRJ).elf
 	$(OBJDUMP) -d $(PRJ).elf
