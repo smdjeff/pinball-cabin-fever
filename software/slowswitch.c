@@ -386,6 +386,9 @@ void tiltTrig(slowSwitch theSwitch, boolean active)
     setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
     )
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
+    setLampMode( LAMP_BACKBOX_BEAR_1, LAMP_OFF_STATE, 0, INFINITE );
+    setLampMode( LAMP_BACKBOX_BEAR_2, LAMP_OFF_STATE, 0, INFINITE );
+    setLampMode( LAMP_BACKBOX_BEAR_3, LAMP_OFF_STATE, 0, INFINITE );
     setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
   }
 }

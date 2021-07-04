@@ -47,7 +47,7 @@ static solenoidState_t queuedSolenoid = {0,};
 static void setSolenoid( solenoid sol, boolean on )
 {
   if ( nonVolatiles.quiteMode == 2 ) {
-    if ( sol==SOLENOID_BELL_PIN || sol==SOLENOID_KNOCKER_PIN ) {
+    if ( sol==SOLENOID_BELL || sol==SOLENOID_KNOCKER ) {
       return;
     }
   }
@@ -180,4 +180,3 @@ void driveSolenoidsISR(void)
     }
   }
 }
-

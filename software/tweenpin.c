@@ -10,63 +10,6 @@
 
 #include "tweenpin.h"
 
-// TODO:
-// abstract datatype for bcd vars?
-// different way to handle display updates? (way to inject messages without changing to attract/game state?)
-// sounds support  (sound board, samples)
-// figure out ints on the ios?
-// hw spi?
-// lane switch support
-// credits persist accross shutdown (would need wearleveled ee)
-//
-// VERIFY FIXES:
-// left and right buttons for attract text changes
-// don't ring bell for increase credits unless it's a coin
-// cancel match timer when game is started
-// improve brown out protect (knocker/bell timer)
-// don't draw coins, or credits on display, if free mode
-// brown out protect (knocker trumps bell, never both)
-// more attract lamp features
-// invert pop bump lamps
-// matchgame has its own timer to eliminate attract lamps during matchgame
-// cabin lamp is fade lamp type
-// bear box_tmr only active when head is open, or during match game
-// multi coin game
-// statistics
-// eeprom checksum
-// standard tilt rules
-// ATTRACT_NEW_HIGH_SCORE display text lame (removed)
-// switches should still score, even if lit
-// shoot again, only on first ball
-// shoot again, if not tilted
-// ball drain needs debounce? seems like balls goes up too fast sometimes.
-// ball drain, confused on load retry for "shoot again"
-// multipler
-// matchgame
-// crazyMode (with display)
-// spinner support
-// don't score (read any slow switches) when tilted
-// clear tilt lamp at next ball
-// fix flipper pwm stick in tilt (allow flipperISR for !active state)
-// added new horizontal playfield lamp attract
-// fix non volatiles (high score)
-// handle ballIsLoading a little more cleanly, this fixes errant "try again" during ball 1 load retry
-// give more time to bear head open before eject
-// bear head might not fully open, then it will keep retrying (and scoring!)
-// configuration (nv): quiet mode, bear adjust, reset high score, tilt(lib/con), FINALBALLs
-// when all targets in the bank are hit, sometimes they don't all blink (doesn't
-//   seem related to hit sequence). - fixed by switching from FLASH to BLINK lamp mode?
-// new back box lamps
-// display sometimes goes blank during game (and stays blank until reset during attract)  
-//    addressed with a big cap right on vss/vdd for the display ic (big current spikes with multiplex freq)
-// initial swag at sounds
-// bear head capture scores MORE than bear target bank complete
-
-// BUGS:
-// bear head shouldn't be doing pwm in attract
-// bear head makes a pwm noise every 30mins? (timer rollover?)
-
-
 
 uint8_t ballInPlay = 0;
 boolean tilt = FALSE;
@@ -720,10 +663,11 @@ void gameTimer(timerEvent evt, uint16_t state)
     break;
   case GAME_TILT:
     scoreDisplayDisabled = TRUE;
-    setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
-    setLampMode( LAMP_PLAYFIELD_GI, LAMP_OFF_STATE, 0, INFINITE );
-    setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_OFF_STATE, 0, INFINITE );
-    setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_OFF_STATE, 0, INFINITE );
+    setTimer(BEAR_TMR, ONE_SECOND, BEAR_CLOSE); //BEAR_EJECT
+    setLampMode( LAMP_PLAYFIELD_GI, LAMP_FLASH_STATE, TWO_SECONDS, 1 );
+    for (int i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
+      setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
+    }
     setSolenoidMode( SOLENOID_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
     setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
     displayString( DISP_BLANK, DISP_BLANK, DISP_T, DISP_I, DISP_L, DISP_T, DISP_BLANK, DISP_BLANK );
@@ -833,20 +777,16 @@ void startGame(void)
   resetScore();
   gameOn = TRUE;
   highScoreExceeded = FALSE;
-  ballInPlay = 1;
-  tilt = FALSE;
-  tiltSense = 0;
+  ballInPlay = 0;
   multiplier = 1;
   crazyMode = FALSE;
+
   cancelTimer(MATCH_TMR);
   cancelTimer(ATTRACT_TMR);
   cancelTimer(ATTRACT_LAMP_TMR);
   setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
-  setLampMode( LAMP_BONUS_1, LAMP_ON_STATE, 0, INFINITE );  
-  setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_ON_STATE, 0, INFINITE );
-  setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_ON_STATE, 0, INFINITE );
-  playSound( SOUND_BACKGROUND );
-  playSound( SOUND_GAME_START );
+
+  nextBall();
 }
 
 void nextBall(void)
@@ -854,6 +794,9 @@ void nextBall(void)
   tilt = FALSE;
   tiltSense = 0;
   setLampMode( LAMP_BACKBOX_TILT, LAMP_OFF_STATE, 0, INFINITE );
+  setLampMode( LAMP_BACKBOX_BEAR_1, LAMP_ON_STATE, 0, INFINITE );
+  setLampMode( LAMP_BACKBOX_BEAR_2, LAMP_ON_STATE, 0, INFINITE );
+  setLampMode( LAMP_BACKBOX_BEAR_3, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_PLAYFIELD_GI, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_ON_STATE, 0, INFINITE );
@@ -940,18 +883,21 @@ static uint8_t checkCalc( uint8_t sum, uint8_t *data, uint8_t size )
 
 void resetNonVolatiles(void)
 {
-  memset( &nonVolatiles, 0x00, sizeof(nonVolatiles) );
-  nonVolatiles.headOpen = 1400;
-  nonVolatiles.headClose = 1750;
-  nonVolatiles.quiteMode = 0;
-  nonVolatiles.soundBoard = 0;
-  nonVolatiles.tiltSensitivity = 3;
-  nonVolatiles.ballsPerGame = 3;
-  nonVolatiles.coinsPerGame = 1;
-  nonVolatiles.gamesPlayed = 0;
-  nonVolatiles.freeGameMatch = 0;
-  nonVolatiles.freeGameHighScore = 0;
-
+  nonVolatiles_t nv = {
+    .highScore = {0,0,0,5,0,0,0,0},
+    .headOpen = 1400,
+    .headClose = 1750,
+    .quiteMode = 1,
+    .tiltSensitivity = 3,
+    .ballsPerGame = 3,
+    .soundBoard = 0,
+    .coinsPerGame = 0,
+    .gamesPlayed = 0, // stats
+    .freeGameMatch = 0, // stats
+    .freeGameHighScore = 0, // stats
+    .checkSum = 0
+  };
+  memcpy( &nonVolatiles, &nv, sizeof(nv) );
 }
 
 void loadNonVolatiles(void)
@@ -1063,7 +1009,7 @@ void configMode(slowSwitch sw)
     maxModes = 11
   } configModes_t;
   
-  static uint8_t mode = 0;
+  static configModes_t mode = 0;
 
   switch(sw) {
     case SWITCH_TEST_ENTER:
@@ -1117,6 +1063,8 @@ void configMode(slowSwitch sw)
           setSolenoidMode( SOLENOID_KNOCKER, SOLENOID_FLASH_STATE, TEN_HUNDRETH_SECONDS, 1);
           resetNonVolatiles();
           break;
+        default:
+          break;
       }
       break;
     case SWITCH_TEST_MINUS:
@@ -1147,6 +1095,8 @@ void configMode(slowSwitch sw)
         case modeCoins:
           if (nonVolatiles.coinsPerGame > 0)
             nonVolatiles.coinsPerGame--;
+          break;
+        default:
           break;
       }
       break;
@@ -1208,6 +1158,8 @@ void configMode(slowSwitch sw)
       break;
     case modeReset:
       displayString(DISP_R,DISP_E,DISP_S,DISP_E,DISP_T,DISP_BLANK,DISP_BLANK,DISP_BLANK);
+      break;
+    default:
       break;
   }
 }

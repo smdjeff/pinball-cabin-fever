@@ -328,10 +328,10 @@ typedef enum {
   LAMP_FLASH_INVERT_STATE, 
   LAMP_FADE_UP_STATE,
   LAMP_FADE_DOWN_STATE,
-  LAMP_FLASH_STATE, // flash is inverted blink
-  LAMP_BLINK_STATE, // blink off first
+  LAMP_FLASH_STATE, // on->off->on
+  LAMP_BLINK_STATE, // off->on->off
   LAMP_ON_STATE,
-  LAMP_BLINK_ON_STATE, // blink on first
+  LAMP_BLINK_ON_STATE, // on->off
 } lampStates;
 
 // Use infinite for time and/or cycles
