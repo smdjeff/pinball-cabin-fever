@@ -535,6 +535,8 @@ void spinTimer(timerEvent evt, uint16_t state)
     count = 0;
     if ( --countDown == 0 ) {
       cancelTimer(SPIN_TMR);
+      // shoot the blinking light
+      setLampMode(LAMP_RIVER_ARROW_1, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
     }
   }
 }
@@ -734,8 +736,10 @@ void bearTimer(timerEvent evt, uint16_t state)
     cycles = 0;
     setSolenoidMode(SOLENOID_BEAR_CAPTURE, SOLENOID_FLASH_PAUSE_STATE, QUARTER_SECOND, 1);
     setTimer(BEAR_TMR, HALF_SECOND, BEAR_CLOSE);
-    setLampMode( LAMP_BEAR_ARROW, LAMP_OFF_STATE, 0, INFINITE );
-    cancelBoxTimer();
+    // and back to shoot the blinking lights
+    for(int i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
+      setLampMode(i, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
+    }
     break;
   case BEAR_TEST:
     bearPWM(bearTestPWM);
@@ -800,6 +804,25 @@ void nextBall(void)
   setLampMode( LAMP_PLAYFIELD_GI, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_ON_STATE, 0, INFINITE );
+  
+  // shoot the blinking lights
+  lamp lamps[] = { LAMP_RIVER_ARROW_1, 
+                   LAMP_TARGET_1_B, LAMP_TARGET_1_E, LAMP_TARGET_1_A, LAMP_TARGET_1_R,
+                   LAMP_TARGET_2_L, LAMP_TARGET_2_O, LAMP_TARGET_2_G, LAMP_TARGET_2_J, LAMP_TARGET_2_A, LAMP_TARGET_2_M };
+  for (int i=0; i<sizeof(lamps)/sizeof(lamps[0]); i++) {
+    if ( getLampMode( lamps[i] ) == LAMP_OFF_STATE ) {
+      setLampMode(lamps[i], LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
+    }
+  }
+  // shoot the blinking light
+  for (int i=LAMP_BONUS_1; i<LAMP_BONUS_1+multiplier; i++) {
+    if ( (getLampMode(i) == LAMP_OFF_STATE) ) {
+      setLampMode(i, LAMP_ON_STATE, INFINITE, 1);
+    }
+  }
+  if ( (getLampMode(LAMP_BONUS_1 + multiplier) != LAMP_BLINK_ON_STATE) ) {
+    setLampMode(LAMP_BONUS_1 + multiplier, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
+  }
 
   resetDisplay(); // just in case
   

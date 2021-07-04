@@ -206,21 +206,18 @@ void driveSlowSwitches(void)
 
 void targetBearTrig(slowSwitch theSwitch, boolean active)
 {
-  uint8_t i;
-
   if(!gameOn) return;
 
   increaseScore(SCORE_ONE_HUNDRED);
-
   playSound( SOUND_BEAR_TARGETS );
 
-  if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
+  if(getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   } else {
     return;
   }
 
-  for(i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
+  for(int i=LAMP_TARGET_1_B; i<=LAMP_TARGET_1_R; i++) {
     if(getLampMode(i) != LAMP_ON_STATE) {
       return;
     }
@@ -233,27 +230,22 @@ void targetBearTrig(slowSwitch theSwitch, boolean active)
   setTimer(BOX_TMR, QUARTER_SECOND, 0);
   setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
   setLampMode( LAMP_BEAR_MOUTH, LAMP_ON_STATE, 0, INFINITE );
-  for(i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
-    setLampMode(i, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
-  }
 }
 
 void targetLogjamTrig(slowSwitch theSwitch, boolean active)
 {
-  uint8_t i;
-
   if(!gameOn) return;
 
   increaseScore(SCORE_ONE_HUNDRED);
   playSound( SOUND_LOGS );
 
-  if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
+  if(getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   } else {
     return;
   }
 
-  for(i = LAMP_TARGET_2_L; i <= LAMP_TARGET_2_M; i++) {
+  for(int i=LAMP_TARGET_2_L; i<=LAMP_TARGET_2_M; i++) {
     if(getLampMode(i) != LAMP_ON_STATE) {
       return;
     }
@@ -262,15 +254,17 @@ void targetLogjamTrig(slowSwitch theSwitch, boolean active)
   // all lamps must be lit
   increaseScore(SCORE_ONE_THOUSAND);
   playSound( SOUND_BONUS );
-  for(i = LAMP_TARGET_2_L; i <= LAMP_TARGET_2_M; i++) {
-    setLampMode(i, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
+  
+  // shoot the blinking light
+  for(int i=LAMP_TARGET_2_L; i<=LAMP_TARGET_2_M; i++) {
+    setLampMode(i, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
   }
 
   if ( multiplier < 6 ) 
   {
     multiplier++;
-    setLampMode(LAMP_BONUS_1 + multiplier - 2, LAMP_OFF_STATE, INFINITE, 1);
     setLampMode(LAMP_BONUS_1 + multiplier - 1, LAMP_ON_STATE, INFINITE, 1);
+    setLampMode(LAMP_BONUS_1 + multiplier, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE); // shoot the blinking light
     setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
   } else {
     if ( !crazyMode ) {
@@ -293,7 +287,7 @@ void targetSnakeTrig(slowSwitch theSwitch, boolean active)
  
   playSound( SOUND_SNAKE );
  
-  if(getLampMode(theSwitch) == LAMP_OFF_STATE) {
+  if(getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   } else {
     return;
@@ -326,13 +320,13 @@ void bearCaptureTrig(slowSwitch theSwitch, boolean active)
     
     if ( getLampMode(LAMP_BEAR_ARROW) == LAMP_OFF_STATE ) {
       // reject shots into bear if the bear isn't actually open.
-      // having trouble with the head not being closed?
-      setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
-    } else {
-      increaseScore(SCORE_FIVE_THOUSAND);
-      playSound( SOUND_BEAR_CHEW );
-      setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW_CLOSE);
-    }
+    // having trouble with the head not being closed?
+    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
+  } else {
+    increaseScore(SCORE_FIVE_THOUSAND);
+    playSound( SOUND_BEAR_CHEW );
+    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW_CLOSE);
+  }
     
   }
 }
