@@ -102,13 +102,10 @@ void bumperISR(fastSwitch theSwitch, boolean active)
     if(getSolenoidMode(fastSwitchSolenoid[theSwitch]) == SOLENOID_IDLE_STATE ) {
       increaseScore(SCORE_ONE_HUNDRED);
       setSolenoidMode( fastSwitchSolenoid[theSwitch] , SOLENOID_ONESHOT_DRIVE_STATE, FOUR_HUNDRETH_SECONDS, 1);
-      setLampMode( LAMP_POP_BUMPER_UPPER , LAMP_FLASH_STATE, EIGTH_SECOND, 3 );
-      setLampMode( LAMP_POP_BUMPER_LOWER , LAMP_FLASH_STATE, EIGTH_SECOND, 3 );
+      setLampMode( (theSwitch==FASTSWITCH_POP_BUMPER_UPPER)?LAMP_POP_BUMPER_UPPER:LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 3 );
       setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
     }
   } else {
     setSolenoidMode( fastSwitchSolenoid[theSwitch], SOLENOID_IDLE_STATE, 0, 1);
   }
 }
-
-
