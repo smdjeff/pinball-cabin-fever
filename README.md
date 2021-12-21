@@ -1,5 +1,15 @@
 # cabin-fever
 
+
+### One of the first homebrew pinballmachines
+
+![Cabin Fever Image](docs/molly.jpg)
+
+![GameRoom Magazine May 2007](docs/cover.jpg)
+[GameRoom Magazine May 2007](docs/GRM19-05.pdf)
+
+## Overview
+
 **TweenPin** is a 3/4 scale custom pinball machine. It consists of all the traditional pinball machine materials: a wood cabinet and playfield, lamps, solenoids, high current power supplies, flippers, targets, pop bumpers, 1 1/8" steel ball, tempered glass, a scoring display and of course an Atmel AVR (ATmega16) powered master control board.
 
 Since the advent of the first commercially successful pinball machine (Gottlieb's Baffle Ball in 1931) pinball has seen its ups and downs. Commercial machines have quite a rich history, with varied and unique features. In more recent years, they've achieved a highly collectible status for home use.
