@@ -1,7 +1,7 @@
 # cabin-fever
 
 
-### One of the first homebrew pinballmachines
+### One of the first homebrew pinball machines
 
 ![Cabin Fever Image](docs/molly.jpg)
 
