@@ -3,10 +3,11 @@
 
 ### One of the first homebrew pinball machines
 
-![Cabin Fever Image](docs/molly.jpg)
+<table><tr>
+    <td style=center><img src="docs/molly.jpg" width="75%"></td>
+  <td style=center><a href="docs/GRM19-05.pdf?raw=true"><img src="docs/cover.jpg" width="25%"></a></td>
+</tr></table>
 
-![GameRoom Magazine May 2007](docs/cover.jpg)
-[GameRoom Magazine May 2007](docs/GRM19-05.pdf)
 
 ## Overview
 
