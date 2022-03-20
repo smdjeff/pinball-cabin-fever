@@ -21,30 +21,11 @@ uint16_t timerData[TIMER_QTY];
 
 uint16_t sysTime = 0;
 
-void __delay_us(uint32_t us)
-{
-  volatile uint32_t i;
-  for (i=0; i<us; i+=40)
-  {
-    // not used for precise time, so accuracy is not necessary
-  }
-}
-
-void __delay_ms(uint32_t ms)
-{
-  volatile uint32_t i;
-  for (i=0; i<ms; i++)
-  {
-    __delay_us( 1000 );
-  }
-}
-
-
 // fast polling timer interrupt vector
 //   drives systime, fast and slow switch polling loops
 //   and solenoid PWM
 //  timer run at 200Hz
-ISR(TIMER0_COMP_vect)
+ISR(TIMER0_COMPA_vect)
 {
   sysTime++;
   driveFastSwitchISR();
@@ -52,7 +33,7 @@ ISR(TIMER0_COMP_vect)
   driveSlowSwitchISR();
 }
 
-ISR(TIMER2_COMP_vect)
+ISR(TIMER2_COMPA_vect)
 {
   driveLampISR();
 }
@@ -107,4 +88,3 @@ void cancelTimer(timerEvent timer)
 {
   timerTime[timer] = 0;
 }
-

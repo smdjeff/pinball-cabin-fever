@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
+#include <util/delay.h>
 
 typedef uint8_t boolean;
 #define TRUE    1
@@ -437,6 +438,7 @@ typedef enum {
 } sounds_t;
 
 void playSound( sounds_t sound );
+void initSound( void );
 
 //////////////////////////////////
 // IO
@@ -455,8 +457,8 @@ void spiWrite(uint8_t byte);
 // other utilities
 //////////////////////////////////
 
-void __delay_us(uint32_t us);
-void __delay_ms(uint32_t ms);
+#define __delay_us _delay_us
+#define __delay_ms _delay_ms
 
 uint16_t getSysTime(void);
 void setTimer( timerEvent timer, uint16_t time, uint16_t data );

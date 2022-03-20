@@ -28,9 +28,10 @@ nonVolatiles_t nonVolatiles;
 
 
 int main (void)
-{
+{  
   initIO();
   bootDisplay();
+  initSound();
   resetGame();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
 
@@ -913,7 +914,7 @@ void resetNonVolatiles(void)
     .quiteMode = 1,
     .tiltSensitivity = 3,
     .ballsPerGame = 3,
-    .soundBoard = 0,
+    .soundBoard = 1,
     .coinsPerGame = 0,
     .gamesPlayed = 0, // stats
     .freeGameMatch = 0, // stats

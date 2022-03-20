@@ -1,23 +1,6 @@
 #include "tweenpin.h"
 
 
-void playSound( sounds_t sound )
-{
-  if ( gameOn && !tilt ) return;
-  if ( !nonVolatiles.soundBoard ) return;
-
-  DECLARE_INT_STATE;
-  DISABLE_INTS();
-  
-  low( BUS_CONTROL_PORT, BUS_SOUND_CS );
-
-  spiWrite( sound );
-  
-  high( BUS_CONTROL_PORT, BUS_SOUND_CS );
-
-  RESTORE_INTS();
-}
-
 // Bit-bang spi routines used for simplicity
 void spiWrite(uint8_t byte)
 {
@@ -158,14 +141,14 @@ void initIO(void)
   output( BUS_CONTROL_DDR, (BUS_SOUND_CS|BUS_DISPLAY_LOAD) );
   
   //setup fast polling timer
-  OCR0 = 40;   // 195.3125Hz = 8000000 / 1024 / 40
-  TCCR0 = BIT(WGM01) | BIT(CS02) | BIT(CS00);    // CTC mode, 1024 prescaler
-  TIMSK |= BIT(OCIE0);  // enable compare interrupt
+  OCR0A = (F_CPU / 1024) / 200/*hz*/;
+  TCCR0A = BIT(WGM01) | BIT(CS02) | BIT(CS00);    // CTC mode, 1024 prescaler
+  TIMSK0 |= BIT(OCIE0A);  // enable compare interrupt
 
   // setup lamp fade timer
-  OCR2 = 62;   // 2000Hz = 8000000 / 64 / 125
-  TCCR2 = BIT(WGM21) | BIT(CS22);    // CTC mode, 64 prescaler
-  TIMSK |= BIT(OCIE2);  // enable compare interrupt
+  OCR2A = (F_CPU / 64) / 2000/*hz*/;
+  TCCR2A = BIT(WGM21) | BIT(CS22);    // CTC mode, 64 prescaler
+  TIMSK0 |= BIT(OCIE2B);  // enable compare interrupt
 
   /* Unused
   // enable and config fast switch interrupt
@@ -175,7 +158,11 @@ void initIO(void)
   */
 
   // timer for bear head pwm
-  TCCR1B = CS12; // 64 prescaler - 128kHz @ 8mhz,
+  // TCCR1B = BIT(CS10);           // F_CPU / 1
+  // TCCR1B = BIT(CS11);           // F_CPU / 8     
+  TCCR1B = BIT(CS11)|BIT(CS10); // F_CPU / 64    125kHz @ 8MHz,  250kHz @ 16Mhz
+  // TCCR1B = BIT(CS12);           // F_CPU / 256   62.5kHZ @ 16 Mhz
+  // TCCR1B = BIT(CS12)|BIT(CS10); // F_CPU / 1024
   low(BEAR_PORT, BEAR_MASK);
   output(BEAR_DDR, BEAR_MASK);
 }
@@ -185,4 +172,3 @@ void initIO(void)
 ISR(INT1_vect)
 {
 }
-
