@@ -27,9 +27,8 @@ void writeDisplayNum( uint8_t reg, uint8_t data )
 
 void writeDisplay( uint8_t reg, uint8_t data )
 {
-  DECLARE_INT_STATE;
-  DISABLE_INTS();
-  
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {  
+    
   spiWrite( reg );
   spiWrite( data );
   
@@ -37,13 +36,13 @@ void writeDisplay( uint8_t reg, uint8_t data )
   __delay_us(1);
   low( BUS_CONTROL_PORT, BUS_DISPLAY_LOAD );
 
-  RESTORE_INTS();
+  }
 }
 
 void bootDisplay(void)
 {
   writeDisplay( DISPLAY_TEST, 0x1 );  
-  __delay_ms(10000);
+  __delay_ms(1000);
   writeDisplay( DISPLAY_TEST, 0x0 );  
   
   resetDisplay();

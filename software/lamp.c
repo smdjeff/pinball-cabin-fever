@@ -126,7 +126,7 @@ lampStates getLampMode( lamp theLamp )
 
 void setLampMode( lamp theLamp, lampStates mode, uint16_t time, uint8_t cycles )
 {
-  ATOMIC(
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     setLamp(theLamp, (mode >= LAMP_ON_STATE));
     lampState[theLamp] = mode;
     lampStateTime[theLamp] = time;
@@ -137,7 +137,7 @@ void setLampMode( lamp theLamp, lampStates mode, uint16_t time, uint8_t cycles )
     } else {
       lampTime[theLamp] = getSysTime();
     }
-  )
+  }
 }
 
 static void fadeLamp( lamp i )
@@ -238,5 +238,3 @@ void driveLamps(void)
     }
   } 
 }
-
-

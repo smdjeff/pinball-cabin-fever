@@ -18,8 +18,8 @@ static const uint8_t fastSwitchPin[FASTSWITCH_QTY] = {
 
 typedef void (*fastSwitchIsr)(fastSwitch, boolean);
 
-void flipperISR(fastSwitch theSwitch, boolean active);
-void bumperISR(fastSwitch theSwitch, boolean active);
+static void flipperISR(fastSwitch theSwitch, boolean active);
+static void bumperISR(fastSwitch theSwitch, boolean active);
 
 // must match fastswitch enum order
 static const fastSwitchIsr fastSwitchFunctions[FASTSWITCH_QTY] = {
@@ -59,7 +59,7 @@ static const uint8_t fastSwitchSolenoid[FASTSWITCH_QTY] = {
   SOLENOID_FLIPPER_RIGHT,
 };
 
-void flipperISR(fastSwitch theSwitch, boolean active)
+static void flipperISR(fastSwitch theSwitch, boolean active)
 {
 
   if ( active ) {
@@ -94,7 +94,7 @@ void flipperISR(fastSwitch theSwitch, boolean active)
   }
 }
 
-void bumperISR(fastSwitch theSwitch, boolean active)
+static void bumperISR(fastSwitch theSwitch, boolean active)
 {
   if(active && (!gameOn || tilt)) return;
 

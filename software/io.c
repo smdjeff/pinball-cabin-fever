@@ -39,8 +39,7 @@ uint8_t spiRead(void)
 
 void writeIO( uint8_t chip, uint8_t reg, uint8_t data )
 {
-  DECLARE_INT_STATE;
-  DISABLE_INTS();
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
   
   low( IO_CS_PORT, (chip < 4 ) ? IO_CS_0123 : IO_CS_4567 );
   
@@ -50,15 +49,14 @@ void writeIO( uint8_t chip, uint8_t reg, uint8_t data )
 
   high( IO_CS_PORT, (IO_CS_0123|IO_CS_4567) );
     
-  RESTORE_INTS();
+  }
 }
 
 
 uint8_t readIO( uint8_t chip, uint8_t reg )
 {
   uint8_t data;
-  DECLARE_INT_STATE;
-  DISABLE_INTS();
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
   
   low( IO_CS_PORT, (chip < 4 ) ? IO_CS_0123 : IO_CS_4567 );
   
@@ -68,7 +66,7 @@ uint8_t readIO( uint8_t chip, uint8_t reg )
   
   high( IO_CS_PORT, (IO_CS_0123|IO_CS_4567) );
     
-  RESTORE_INTS(); 
+  }
   return data;
 }
 

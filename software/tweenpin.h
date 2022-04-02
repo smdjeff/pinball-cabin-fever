@@ -1,14 +1,18 @@
 #ifndef __TWEENPIN_H__
 #define __TWEENPIN_H__
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <util/delay.h>
+#include <util/atomic.h>
+#include "timers.h"
+#include "uart.h"
 
-typedef uint8_t boolean;
-#define TRUE    1
-#define FALSE   0
+typedef bool    boolean;
+#define TRUE    true
+#define FALSE   false
 
 #define BIT(x) (1<<(x))
 
@@ -31,10 +35,6 @@ typedef uint8_t boolean;
 #define read(pin,mask)          \
   pin & (mask)
 
-#define ENABLE_INTS()  do{ sei(); } while(0)
-#define DECLARE_INT_STATE uint8_t _intState
-#define DISABLE_INTS() do{ _intState = (SREG & BIT(SREG_I)); cli(); } while(0)
-#define RESTORE_INTS() do{ SREG |= _intState; } while(0)
 #define ATOMIC(blah) { DECLARE_INT_STATE; DISABLE_INTS(); blah RESTORE_INTS(); }
 
 //PDA0..7 = highseed solenoids 0-7

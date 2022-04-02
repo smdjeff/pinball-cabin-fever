@@ -73,7 +73,7 @@ solenoidStates getSolenoidMode( solenoid sol )
 }
 
 
-void solenoidTimer(timerEvent evt, uint16_t state)
+void solenoidTimer(timerEvent id, uint16_t state)
 {
   if ( queuedSolenoid.active ) {
     queuedSolenoid.active = FALSE;
@@ -108,13 +108,13 @@ void setSolenoidMode( solenoid sol, solenoidStates mode, uint16_t time, uint8_t 
     }
   }
 
-  ATOMIC(
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     setSolenoid(sol, (mode > SOLENOID_ACTIVE));
     solenoidState[sol] = mode;
     solenoidTime[sol] = getSysTime();
     solenoidStateTime[sol] = time;
     solenoidCycles[sol] = cycles;
-  )
+  }
 }
 
 // Solenoids driven by ISR to reliably support PWM modes used when flippers

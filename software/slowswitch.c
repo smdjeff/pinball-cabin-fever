@@ -123,37 +123,6 @@ void testSwitch(void)
     writeDisplayNum( DISPLAY_DIG7, scan[0] & 0x0F);
 }
 
-//io interrupt
-/*ISR(INT2_vect)
-{
-  static uint8_t lastScan[IO_INPUT_CHIP_COUNT];
-  uint8_t scan[IO_INPUT_CHIP_COUNT];
-  uint8_t switchchip, switchmask;
-  uint8_t i;
-
-
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-    {
-//      scan[i] = readIO( i, IO_INTF );
-    scan[i] = readIO( i, IO_GPIO );
-  }
-  for ( i = 0; i < SWITCH_QTY; i++ ) {
-    switchchip = slowSwitchIO[i] >> 3;
-    switchmask = BIT(slowSwitchIO[i] & 0x07);
-    if ( (scan[switchchip] & switchmask) != (lastScan[switchchip] & switchmask ) ) {
-      slowSwitchFunctions[i](i,(scan[switchchip] & switchmask));
-writeDisplayNum( DISPLAY_DIG7, i&0x0f);
-writeDisplayNum( DISPLAY_DIG6, i>>4);
-break;
-    }
-  }
-
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-    {
-        lastScan[i] = scan[i];
-  }
-   
-}*/
 
 static uint8_t lastScan[IO_INPUT_CHIP_COUNT];
 static boolean switchFlags[SWITCH_QTY];
@@ -185,19 +154,19 @@ void driveSlowSwitches(void)
 {
   uint8_t i;
   slowSwitchTrig func;
-  DECLARE_INT_STATE;
-
   for ( i = 0; i < SWITCH_QTY; i++ ) {
-    DISABLE_INTS();
-    if( switchFlags[i] ) {
-      switchFlags[i] = FALSE;
-      RESTORE_INTS();
+    boolean flag;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      flag = switchFlags[i];
+      if( flag ) {
+        switchFlags[i] = FALSE;
+      }
+    }
+    if ( flag ) {
       func = slowSwitchFunctions[i];
       if ( (!tilt) || (func==drainTrig) ) {
         func(i,TRUE);
       }
-    } else {
-      RESTORE_INTS();
     }
   }
 }
@@ -374,11 +343,11 @@ void tiltTrig(slowSwitch theSwitch, boolean active)
   
   if ( ++tiltSense > nonVolatiles.tiltSensitivity )
   { 
-    ATOMIC(
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     tilt = TRUE;
     setSolenoidMode( SOLENOID_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
     setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
-    )
+    }
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
     setLampMode( LAMP_BACKBOX_BEAR_1, LAMP_OFF_STATE, 0, INFINITE );
     setLampMode( LAMP_BACKBOX_BEAR_2, LAMP_OFF_STATE, 0, INFINITE );

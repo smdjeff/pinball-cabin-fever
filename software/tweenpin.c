@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 
 #include "tweenpin.h"
 
@@ -33,28 +34,23 @@ int main (void)
   bootDisplay();
   initSound();
   resetGame();
-  setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
 
   loadNonVolatiles();
   
+  initTimers();
+  setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
   setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
   setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
 
-  ENABLE_INTS();
-  
+  sei();
+
   for (;; )
   {
+    wdt_reset();
+
     driveLamps();
     driveSlowSwitches();
-    driveTimers();
-    if ( !gameOn )
-    {
-      // attract mode is driven by the attract timers
-    } 
-    else 
-    {
-      // driven by switch routines
-    }
+    driveTimers();    
   }
 }
 
@@ -769,7 +765,7 @@ void resetGame(void)
   setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_PLAYFIELD_GI, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_BACKBOX_RIVER, LAMP_ON_STATE, 0, INFINITE );
-  setLampMode( LAMP_BACKBOX_CABIN, LAMP_FADE_UP_STATE, 200, INFINITE );
+  setLampMode( LAMP_BACKBOX_CABIN, LAMP_ON_STATE, 0, INFINITE );
   
   cancelTimer(CRAZY_TMR);
   cancelBoxTimer();

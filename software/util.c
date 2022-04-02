@@ -14,9 +14,9 @@ const timerCallback timerCallbacks[TIMER_QTY] = {
   solenoidTimer
 };
 
-uint16_t timerTime[TIMER_QTY];
-uint16_t timerLastTime[TIMER_QTY];
-uint16_t timerData[TIMER_QTY];
+static uint16_t timerTime[TIMER_QTY] = {0,};
+static uint16_t timerLastTime[TIMER_QTY] = {0,};
+static uint16_t timerData[TIMER_QTY] = {0,};
 
 
 uint16_t sysTime = 0;
@@ -41,10 +41,9 @@ ISR(TIMER2_COMPA_vect)
 uint16_t getSysTime(void)
 {
   uint16_t temp;
-  // use atomic since time is 16-bit and modified by interrupt
-  ATOMIC(
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     temp = sysTime;
-  )
+  }
   return temp;
 }
 
@@ -73,7 +72,7 @@ void setTimer( timerEvent timer, uint16_t time, uint16_t data )
 
 void setIfActiveTimer( timerEvent timer, uint16_t data )
 {
-  if ( timerTime[timer] > 0) {
+  if ( timerTime[timer] ) {
     timerTime[timer] = 1;
     timerData[timer] = data;
   }
