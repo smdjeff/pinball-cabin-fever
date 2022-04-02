@@ -53,11 +53,11 @@ uint16_t getSysTime(void)
 void driveTimers(void)
 {
   uint8_t i;
-
-  for( i=0; i< TIMER_QTY; i++) {
+  for( i=0; i<TIMER_QTY; i++) {
     if(timerTime[i]) {
-      if( getSysTime() - timerLastTime[i] > timerTime[i] ) {
-        timerTime[i] = 0;
+      uint16_t t = getSysTime();
+      if( t - timerLastTime[i] > timerTime[i] ) {
+        timerTime[i] = t;
         timerCallbacks[i](i, timerData[i]);
       }
     }
