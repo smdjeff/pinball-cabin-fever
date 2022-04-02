@@ -20,12 +20,11 @@ boolean gameOn = FALSE;
 boolean highScoreExceeded = FALSE;
 boolean scoreDisplayDisabled = FALSE;
 boolean ballIsLoading = FALSE;
-boolean crazyMode;
-uint16_t bearTestPWM;
+boolean crazyMode = FALSE;
 
-static score_t score;
+static score_t score = {0,};
 static uint8_t credits = 0;
-nonVolatiles_t nonVolatiles;
+nonVolatiles_t nonVolatiles = {0,};
 
 
 int main (void)
@@ -676,45 +675,47 @@ void gameTimer(timerEvent evt, uint16_t state)
   }
 }
 
-
-void bearPWM(uint16_t width)
+void bearSetPulse(uint8_t pulse)
 {
-  // Needs to remain atomic in order to ensure accurate timing
-  ATOMIC(
-    TCNT1 = 0;
-    high(BEAR_PORT, BEAR_MASK);
-    while(TCNT1 < width) {
-      ;
-    }
-    low(BEAR_PORT, BEAR_MASK);      
-  )
+  // bear head pwm
+  // timer 0 is an 8 bit timer
+  low(BEAR_PORT, BEAR_MASK);
+  output(BEAR_DDR, BEAR_MASK);
+  
+  // 1024/16 MHz = 64 us units. 
+  // 1 ms servo pulse = 15
+  // 2 ms servo pulse = 31
+  OCR0B = pulse;
+  TCCR0A = _BV(COM0B1); // clear OC0B on Compare Match, set OC0B at BOTTOM, (non-inverting mode)
+  TCCR0A |= _BV(WGM01) | _BV(WGM00);  // fast pwm mode
+  TCCR0B = _BV(CS02) | _BV(CS00); // 1024 prescaller
 }
 
 // cycles the bear through its various motions
 //   modes are activated by "BEAR" targets and bear capture
-void bearTimer(timerEvent evt, uint16_t state)
+void bearTimer(timerEvent id, uint16_t state)
 {
   static uint8_t cycles=0;
 
   switch(state) {
   case BEAR_OPEN:
-    bearPWM(nonVolatiles.headOpen);
+    bearSetPulse(nonVolatiles.headOpen);
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_OPEN);  // keep open
     break;
   case BEAR_CHEW_CLOSE:
     if(cycles == 0) cycles = 3;  // first time
-    bearPWM(nonVolatiles.headClose);
+    bearSetPulse(nonVolatiles.headClose);
     setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CHEW_OPEN);
-    bearPWM(nonVolatiles.headClose);
+    bearSetPulse(nonVolatiles.headClose);
     break;
   case BEAR_CHEW_OPEN:
-    bearPWM(nonVolatiles.headOpen);
+    bearSetPulse(nonVolatiles.headOpen);
     if(--cycles) {
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CHEW_CLOSE);
     } else {
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
     }
-    bearPWM(nonVolatiles.headOpen);
+    bearSetPulse(nonVolatiles.headOpen);
     break;
   case BEAR_EJECT:
     setLampMode(LAMP_BEAR_MOUTH, LAMP_BLINK_STATE, EIGTH_SECOND, 8);  // debounce timer
@@ -722,7 +723,7 @@ void bearTimer(timerEvent evt, uint16_t state)
     cycles = 0;
     break;
   case BEAR_EJECT_1:
-    bearPWM(nonVolatiles.headOpen);
+    bearSetPulse(nonVolatiles.headOpen);
     if ( cycles++ > 4 ) {
       setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT_2);
     } else {
@@ -739,12 +740,11 @@ void bearTimer(timerEvent evt, uint16_t state)
     }
     break;
   case BEAR_TEST:
-    bearPWM(bearTestPWM);
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_TEST);
     break;
   case BEAR_CLOSE:
   default:
-    bearPWM(nonVolatiles.headClose);
+    bearSetPulse(nonVolatiles.headClose);
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CLOSE);  // keep closed
     break;
   }
@@ -905,8 +905,8 @@ void resetNonVolatiles(void)
 {
   nonVolatiles_t nv = {
     .highScore = {0,0,0,5,0,0,0,0},
-    .headOpen = 1400,
-    .headClose = 1750,
+    .headOpen = 20,
+    .headClose = 25,
     .quiteMode = 1,
     .tiltSensitivity = 3,
     .ballsPerGame = 3,
@@ -1053,12 +1053,12 @@ void configMode(slowSwitch sw)
     case SWITCH_TEST_PLUS:
       switch(mode) {
         case modeHeadOpen:
-          if (nonVolatiles.headOpen<1975)
-            nonVolatiles.headOpen += 25;
+          if (nonVolatiles.headOpen<31)
+            nonVolatiles.headOpen++;
           break;
         case modeHeadClose:
-          if (nonVolatiles.headClose<1975)
-            nonVolatiles.headClose += 25;
+          if (nonVolatiles.headClose<31)
+            nonVolatiles.headClose++;
           break;
         case modeQuiet:
           if (nonVolatiles.quiteMode<2)
@@ -1090,12 +1090,12 @@ void configMode(slowSwitch sw)
     case SWITCH_TEST_MINUS:
       switch(mode) {
         case modeHeadOpen:
-          if (nonVolatiles.headOpen>1025)
-            nonVolatiles.headOpen -= 25;
+          if (nonVolatiles.headOpen>15)
+            nonVolatiles.headOpen--;
           break;
         case modeHeadClose:
-          if (nonVolatiles.headClose>1025)
-            nonVolatiles.headClose -= 25;
+          if (nonVolatiles.headClose>15)
+            nonVolatiles.headClose--;
           break;
         case modeQuiet:
           if (nonVolatiles.quiteMode>0)
@@ -1127,13 +1127,13 @@ void configMode(slowSwitch sw)
   switch(mode) {
     case modeHeadOpen:
       displayString(DISP_H,DISP_D,DISP_O,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      bearTestPWM = nonVolatiles.headOpen;
+      bearSetPulse( nonVolatiles.headOpen );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
       displayLong( nonVolatiles.headOpen, 4 );
       break;
     case modeHeadClose:
       displayString(DISP_H,DISP_D,DISP_C,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      bearTestPWM = nonVolatiles.headClose;
+      bearSetPulse( nonVolatiles.headClose );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
       displayLong( nonVolatiles.headClose, 4 );
       break;

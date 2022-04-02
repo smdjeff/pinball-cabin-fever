@@ -477,8 +477,8 @@ typedef uint8_t score_t[8];
 
 typedef struct {
   score_t highScore;
-  uint16_t headOpen;
-  uint16_t headClose;
+  uint8_t headOpen;
+  uint8_t headClose;
   uint8_t quiteMode;
   uint8_t tiltSensitivity;
   uint8_t ballsPerGame;
@@ -498,7 +498,6 @@ extern boolean gameOn;
 extern boolean ballIsLoading;
 extern uint8_t multiplier;
 extern boolean crazyMode;
-extern uint16_t bearTestPWM;
 extern nonVolatiles_t nonVolatiles;
 
 typedef enum {
