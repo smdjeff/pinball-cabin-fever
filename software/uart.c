@@ -562,7 +562,7 @@ void uart0_init(uint32_t baudrate)
 void uart0_init(uint16_t baudrate)
 #endif
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART_TxHead = 0;
 		UART_TxTail = 0;
 		UART_RxHead = 0;
@@ -649,7 +649,7 @@ uint16_t uart0_getc(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART_RxHead == UART_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -681,7 +681,7 @@ uint16_t uart0_peek(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART_RxHead == UART_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -712,7 +712,7 @@ void uart0_putc(uint8_t data)
 	tmphead = (UART_TxHead + 1) & UART_TX0_BUFFER_MASK;
 
 	do {
-		ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 			txtail_tmp = UART_TxTail;
 		}
 	} while (tmphead == txtail_tmp); /* wait for free space in buffer */
@@ -780,7 +780,7 @@ uint16_t uart0_available(void)
 {
 	uint16_t ret;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		ret = (UART_RX0_BUFFER_SIZE + UART_RxHead - UART_RxTail) & UART_RX0_BUFFER_MASK;
 	}
 	return ret;
@@ -794,7 +794,7 @@ Returns:  None
 **************************************************************************/
 void uart0_flush(void)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART_RxHead = UART_RxTail;
 	}
 } /* uart0_flush */
@@ -873,7 +873,7 @@ Returns:  none
 **************************************************************************/
 void uart1_init(uint16_t baudrate)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART1_TxHead = 0;
 		UART1_TxTail = 0;
 		UART1_RxHead = 0;
@@ -911,7 +911,7 @@ uint16_t uart1_getc(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART1_RxHead == UART1_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -942,7 +942,7 @@ uint16_t uart1_peek(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART1_RxHead == UART1_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -973,7 +973,7 @@ void uart1_putc(uint8_t data)
 	tmphead = (UART1_TxHead + 1) & UART_TX1_BUFFER_MASK;
 
 	do {
-		ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 			txtail_tmp = UART1_TxTail;
 		}
 	} while (tmphead == txtail_tmp); /* wait for free space in buffer */
@@ -1037,7 +1037,7 @@ uint16_t uart1_available(void)
 {
 	uint16_t ret;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		ret = (UART_RX1_BUFFER_SIZE + UART1_RxHead - UART1_RxTail) & UART_RX1_BUFFER_MASK;
 	}
 	return ret;
@@ -1053,7 +1053,7 @@ Returns:  None
 **************************************************************************/
 void uart1_flush(void)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART1_RxHead = UART1_RxTail;
 	}
 } /* uart1_flush */
@@ -1134,7 +1134,7 @@ Returns:  none
 **************************************************************************/
 void uart2_init(uint16_t baudrate)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART2_TxHead = 0;
 		UART2_TxTail = 0;
 		UART2_RxHead = 0;
@@ -1172,7 +1172,7 @@ uint16_t uart2_getc(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART2_RxHead == UART2_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -1204,7 +1204,7 @@ uint16_t uart2_peek(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART2_RxHead == UART2_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -1235,7 +1235,7 @@ void uart2_putc(uint8_t data)
 	tmphead = (UART2_TxHead + 1) & UART_TX2_BUFFER_MASK;
 
 	do {
-		ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 			txtail_tmp = UART2_TxTail;
 		}
 	} while (tmphead == txtail_tmp); /* wait for free space in buffer */
@@ -1298,7 +1298,7 @@ uint16_t uart2_available(void)
 {
 	uint16_t ret;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		ret = (UART_RX2_BUFFER_SIZE + UART2_RxHead - UART2_RxTail) & UART_RX2_BUFFER_MASK;
 	}
 	return ret;
@@ -1314,7 +1314,7 @@ Returns:  None
 **************************************************************************/
 void uart2_flush(void)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART2_RxHead = UART2_RxTail;
 	}
 } /* uart2_flush */
@@ -1394,7 +1394,7 @@ Returns:  none
 **************************************************************************/
 void uart3_init(uint16_t baudrate)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART3_TxHead = 0;
 		UART3_TxTail = 0;
 		UART3_RxHead = 0;
@@ -1432,7 +1432,7 @@ uint16_t uart3_getc(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART3_RxHead == UART3_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -1463,7 +1463,7 @@ uint16_t uart3_peek(void)
 	uint16_t tmptail;
 	uint8_t data;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		if (UART3_RxHead == UART3_RxTail) {
 			return UART_NO_DATA;   /* no data available */
 		}
@@ -1494,7 +1494,7 @@ void uart3_putc(uint8_t data)
 	tmphead = (UART3_TxHead + 1) & UART_TX3_BUFFER_MASK;
 
 	do {
-		ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 			txtail_tmp = UART3_TxTail;
 		}
 	} while (tmphead == txtail_tmp); /* wait for free space in buffer */
@@ -1558,7 +1558,7 @@ uint16_t uart3_available(void)
 {
 	uint16_t ret;
 
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		ret = (UART_RX3_BUFFER_SIZE + UART3_RxHead - UART3_RxTail) & UART_RX3_BUFFER_MASK;
 	}
 	return ret;
@@ -1574,7 +1574,7 @@ Returns:  None
 **************************************************************************/
 void uart3_flush(void)
 {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 		UART3_RxHead = UART3_RxTail;
 	}
 } /* uart3_flush */
