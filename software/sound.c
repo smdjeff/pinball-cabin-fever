@@ -1,119 +1,127 @@
 #include <stdlib.h>
 #include <string.h>
-#include <avr/pgmspace.h>
 
 #include "tweenpin.h"
 
 #include "uart.h"
 
-void initSound( void ) {}
-void playSound( sounds_t sound ) {}
-
-#if 0
-
 void initSound( void )
 {
-  uart_init( UART_BAUD_SELECT( 115200, F_CPU ) );
-  uart_puts_P( "\r\n" );
-  uart_puts_P( "AT+VOL=30\r\n" );
-  
+  #ifdef USART0_ENABLED
+    uart_init( UART_BAUD_SELECT( 9600, F_CPU ) );
+    uart_puts_P( "\nq\n+\n" );
+  #endif
   #ifdef USART1_ENABLED  
-    uart1_init( UART_BAUD_SELECT( 115200, F_CPU ) );
-    uart1_puts_P( "\r\n" );
+    uart1_init( UART_BAUD_SELECT( 9600, F_CPU ) );
+    uart1_puts_P( "\nq\n+\n" );
   #endif
 }
 
-#define playEffect( str ) do { \
-    uart_puts_P( "AT+PLAYFILE=" ); \
-    uart_puts_P( str ); \
-    uart_puts_P( "\r\n" ); \
-  } while(0)
+void playEffect( const char *progmem_s ) 
+{
+  #ifdef USART0_ENABLED
+    char s[] = "P        OGG\n";
+    strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
+    uart_puts_P( "q\n" );
+    __delay_ms(20);
+    uart_puts( s );
+  #endif
+}
 
-#ifdef USART1_ENABLED  
+void playMusic( const char *progmem_s ) 
+{
+  if (!gameOn) return;
+  // #ifdef USART1_ENABLED  
+  //   char s[] = "P        OGG\n";
+  //   strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
+  //   uart1_puts_P( "q\n" );
+  //   __delay_ms(100);
+  //   uart1_puts( s );
+  // #endif
+}
 
-  #define stopMusic() do { \
-    uart1_puts_P( "AT+VOL=0\r\n" ); \
-    uart1_puts_P( "AT+PLAYMODE=0\r\n" ); \
-  } while(0)
+void stopMusic( void )
+{
+  cancelTimer( MUSIC_TMR );
+  #ifdef USART1_ENABLED  
+    uart1_puts_P( "q\n" );
+  #endif
+}
   
-  #define playMusic( str ) do { \
-      uart1_puts_P( "AT+VOL=30\r\n" ); \
-      uart1_puts_P( "AT+PLAYMODE=1\r\n" ); \
-      uart1_puts_P( "AT+PLAYFILE=" ); \
-      uart1_puts_P( str ); \
-      uart1_puts_P( "\r\n" ); \
-    } while(0)
-#else  
-
-  #define stopMusic() do { } while(0)
-  #define playMusic( str ) do { } while(0)
-  
-#endif
-
-
-
 void playSound( sounds_t sound )
 {
-  if ( gameOn && !tilt ) return;
-  if ( !nonVolatiles.soundBoard ) return;
+  // if ( gameOn && !tilt ) return;
+  // if ( !nonVolatiles.soundBoard ) return;
 
   switch ( sound ) {
-    case SOUND_STOP:
+    case SOUND_SNAKE:
+    case SOUND_LIZARD:
+      playEffect( PSTR("HIT") );
       break;
-    case SOUND_SNAKE: // rattler
+    case SOUND_SPINNER:
+      playEffect( PSTR("DRIP") );
       break;
-    case SOUND_SPINNER: // water park screams
-      playEffect( "Drip.wav" );
-      break;
-    case SOUND_BEAR_TARGETS: // large animal grunt
+    case SOUND_COIN:
+    case SOUND_BEAR_TARGETS:
       switch ( rand() % 3 ) {
-        case 0: playEffect( "BearRoar0.wav" ); break;
-        case 1: playEffect( "BearRoar1.wav" ); break;
-        case 2: playEffect( "BearRoar2.wav" ); break;
+        case 0: playEffect( PSTR("ROAR0") ); break;
+        case 1: playEffect( PSTR("ROAR1") ); break;
+        case 2: playEffect( PSTR("ROAR2") ); break;
       }
       break;
-    case SOUND_BEAR_OPEN: // grizzly growl
-      playEffect( "BearMouth.wav" );
-      playMusic( "BearMusic.mp3" );
+    case SOUND_BEAR_OPEN:
+      playEffect( PSTR("BEARMOU") );
       break;
-    case SOUND_BEAR_CHEW: // large animal chew
+    case SOUND_BEAR_CHEW:
       break;
-    case SOUND_LOGS: // beavers (or music)
+    case SOUND_LOGS:
+    case SOUND_MATCHING:
       switch ( rand() % 3 ) {
-        case 0: playEffect( "LogHit0.mp3" ); break;
-        case 1: playEffect( "LogHit1.wav" ); break;
-        case 2: playEffect( "LogHit2.wav" ); break;
+        case 0: playEffect( PSTR("LOG0") ); break;
+        case 1: playEffect( PSTR("LOG1") ); break;
+        case 2: playEffect( PSTR("LOG2") ); break;
       }
       break;
-    case SOUND_BONUS: // buzz saw
+    case SOUND_BONUS:
+      playEffect( PSTR("START") );
       break;
-    case SOUND_LIZARD: // lizard
-      break;
-    case SOUND_DRAIN: // drop into water
+    case SOUND_DRAIN:
+      stopMusic();
       switch ( rand() % 2 ) {
-        case 0: playEffect( "Drain0.wav" ); break;
-        case 1: playEffect( "Drain1.wav" ); break;
+        case 0: playEffect( PSTR("DRAIN0") ); break;
+        case 1: playEffect( PSTR("DRAIN1") ); break;
       }
       break;
     case SOUND_GAME_START:
-      playEffect( "StartButton.wav" );
+      playEffect( PSTR("start") );
       break;
+    case SOUND_GAME_TILT:
     case SOUND_GAME_END:
+      stopMusic();
       switch ( rand() % 2 ) {
-        case 0: playEffect( "GameOver0.mp3" ); break;
-        case 1: playEffect( "GameOver1.wav" ); break;
+        case 0: playEffect( PSTR("OVER0") ); break;
+        case 1: playEffect( PSTR("OVER1") ); break;
       }
       break;
-    case SOUND_MATCHING:    // clicks
+    case SOUND_BEAR_MUSIC:
+      playMusic( PSTR("BEARMUS") );
+      setTimer( MUSIC_TMR, (28.2*ONE_SECOND), (uint16_t)sound );
       break;
-    case SOUND_BACKGROUND_STOP:
+    case SOUND_MAIN_MUSIC:
+      playMusic( PSTR("MAIN") );
+      setTimer( MUSIC_TMR, (43.2*ONE_SECOND), (uint16_t)sound );
+      break;
+    case SOUND_STOP:
       stopMusic();
       break;
-    case SOUND_BACKGROUND: // babbling brook
-      playMusic( "MainMusic.wav" );
-      break;
   }
-  
 }
 
-#endif
+void musicTimer(timerEvent id, uint16_t state) 
+{
+  if ( state == SOUND_MAIN_MUSIC ) {
+    playMusic( PSTR("MAIN") );
+  } else {
+    playMusic( PSTR("BEARMUS") );
+  }
+}
