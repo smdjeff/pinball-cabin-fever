@@ -1,172 +1,86 @@
 #include "tweenpin.h"
 
 
-// Bit-bang spi routines used for simplicity
 void spiWrite(uint8_t byte)
 {
-  uint8_t i = 8;
-  do {
-    i--;
-    low( SPI_PORT, SPI_SCK );
-    if ( byte & BIT(i) ) 
-    {
-      high( SPI_PORT, SPI_MOSI ); 
-    } else {
-      low( SPI_PORT, SPI_MOSI );
-    }
-    __delay_us(10);
-    high( SPI_PORT, SPI_SCK );
-    __delay_us(10);
-  } while ( i != 0 );
-  low( SPI_PORT, SPI_MOSI );
+  SPDR = byte;
+  while(!(SPSR & _BV(SPIF) ));
 }
 
 uint8_t spiRead(void)
 {
-  uint8_t data = 0;
-  uint8_t i = 8;
-  do {
-    low( SPI_PORT, SPI_SCK );
-    __delay_us(10);
-    high( SPI_PORT, SPI_SCK );
-    __delay_us(10);
-    i--;
-    if ( read( SPI_PIN, SPI_MISO ) )
-      data |= BIT( i );
-  } while ( i != 0 );
-  return data;
+  SPDR = 0x00;
+  while(!(SPSR & _BV(SPIF) ));
+  return(SPDR);
 }
 
 void writeIO( uint8_t chip, uint8_t reg, uint8_t data )
 {
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-  
   low( IO_CS_PORT, (chip < 4 ) ? IO_CS_0123 : IO_CS_4567 );
-  
   spiWrite( 0x40 | ((chip & 0x3) << 1) | 0x00 );  // op-code
   spiWrite( reg );
   spiWrite( data );
-
   high( IO_CS_PORT, (IO_CS_0123|IO_CS_4567) );
-    
-  }
 }
-
 
 uint8_t readIO( uint8_t chip, uint8_t reg )
 {
-  uint8_t data;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-  
   low( IO_CS_PORT, (chip < 4 ) ? IO_CS_0123 : IO_CS_4567 );
-  
   spiWrite( 0x40 | ((chip & 0x3) << 1) | 0x01 );  // op-code
   spiWrite( reg );
-  data = spiRead();
-  
+  uint8_t data = spiRead();
   high( IO_CS_PORT, (IO_CS_0123|IO_CS_4567) );
-    
-  }
   return data;
 }
 
-
 void initIO(void)
 {
-  // configure solenoid outputs
-  low( SOLENOID_PORT, SOLENOID_MASK );
-  output( SOLENOID_DDR, SOLENOID_MASK );
-  low( SOLENOID_PORT_H, SOLENOID_MASK_H );
-  output( SOLENOID_DDR_H, SOLENOID_MASK_H );
-  
-  // configure highspeed sw inputs
-  high( FASTSWITCH_PORT, FASTSWITCH_MASK ); // pull up
-  input( FASTSWITCH_DDR, FASTSWITCH_MASK );
-
-  // configure bit-banged spi
-  //pb5 = mosi
-  //pb6 = miso
-  //pb7 = sck
-  DDRB |= (BIT(5) | BIT(7));
-  DDRB &= ~BIT(6);
+  // configure spi bus
+  output( SPI_DDR, (SPI_SCK|SPI_MOSI) );
+  input( SPI_DDR, (SPI_MISO) );
+  high( SPI_PORT, SPI_MISO );
   high( SPI_PORT, SPI_SCK );
+  low( SPI_PORT, SPI_MOSI );
 
+  // spi_cs has to be asserted to run in spi_master
+  // conflicts with bear head pwm but doesn't seem to be a big deal
+  output( SPI_DDR, (BEAR_MASK) );
+  high( SPI_PORT, BEAR_MASK );
+  
+  // spi master mode enabled
+  SPCR = _BV(SPE)|_BV(MSTR);
+  // SPCR |= _BV(SPR1)|_BV(SPR0);  // F_CPU/128 = 125kbps
+  // SPCR |= _BV(SPR0);  // F_CPU/16 = 1mbps
+  SPCR |= _BV(SPR0); SPSR = _BV(SPI2X); // F_CPU/8 = 2mbps
+  // SPCR |= 0; // F_CPU/4 = 4mbps
+  // SPCR |= 0; SPSR = _BV(SPI2X); // F_CPU/4 = 8mbps
+
+  // disable jtag so PORTC2,3,4,5  can be used as GPIO
+  MCUCR |= _BV(JTD);
+  MCUCR |= _BV(JTD);
+  
   // reset and release, io-expanders
   low( IO_CONTROL_PORT, IO_CONTROL_RESET );
   output( IO_CONTROL_DDR, IO_CONTROL_RESET );
   high( IO_CS_PORT, (IO_CS_0123|IO_CS_4567) );
-  output(  IO_CS_DDR, (IO_CS_0123|IO_CS_4567) );
+  output( IO_CS_DDR, (IO_CS_0123|IO_CS_4567) );
   __delay_us(3);
   high( IO_CONTROL_PORT, IO_CONTROL_RESET);
   
-  uint8_t i;
   // configure input chips
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-  {
+  for (uint8_t i=IO_INPUT_CHIP_0; i<IO_INPUT_CHIP_MAX; i++ ) {
     // disable sequential addressing, enable hw addrs, open-drain int pin
     writeIO( i, IO_IOCON, IOCON_SEQOP|IOCON_HAEN|IOCON_ORD );
     writeIO( i, IO_DIR, 0xFF );   //all pins, input
     writeIO( i, IO_GPPU, 0xFF );  //all pins, enable pull-ups
     writeIO( i, IO_IPOL, 0xFF );  //all pins, invert pin logic state
-    /* Interrupt features of IO Expanders not currently used
-    //  writeIO( i, IO_DEFVAL, 0x00 );
-      // all pins, configure for change int
-    //  writeIO( i, IO_INTCON, 0x00 );
-    //  readIO( i, IO_GPIO );  // clear any flags
-    //  writeIO( i, IO_GPINTEN, 0xFF );
-    */
   }
 
-  /* Interrupt features of IO Expanders not currently used
-  // enable and config io expander interrupt
-  //  MCUCSR &= ~BIT(ISC2); // falling edge
-  //  PORTB |= BIT(2);    // pull up on int2 pin
-  //  GICR |= BIT(INT2);
-  */
-
   // configure output chips
-  for ( i = IO_OUTPUT_CHIP_0; i < IO_OUTPUT_CHIP_MAX; i++ )
-  {
+  for (uint8_t i=IO_OUTPUT_CHIP_0; i<IO_OUTPUT_CHIP_MAX; i++ ) {
     // disable sequential addressing, enable hw addrs
     writeIO( i, IO_IOCON, IOCON_SEQOP|IOCON_HAEN );
     writeIO( i, IO_OLAT, 0x00 );  //all pins, outputs low
     writeIO( i, IO_DIR, 0x00 );   //all pins, output
   }
-    
-  // configure board bus
-  low( BUS_CONTROL_PORT, BUS_DISPLAY_LOAD );
-  high( BUS_CONTROL_PORT, BUS_SOUND_CS );
-  output( BUS_CONTROL_DDR, (BUS_SOUND_CS|BUS_DISPLAY_LOAD) );
-  
-  //setup fast polling timer
-  OCR0A = (F_CPU / 1024) / 200/*hz*/;
-  TCCR0A = BIT(WGM01) | BIT(CS02) | BIT(CS00);    // CTC mode, 1024 prescaler
-  TIMSK0 |= BIT(OCIE0A);  // enable compare interrupt
-
-  // setup lamp fade timer
-  OCR2A = (F_CPU / 64) / 2000/*hz*/;
-  TCCR2A = BIT(WGM21) | BIT(CS22);    // CTC mode, 64 prescaler
-  TIMSK0 |= BIT(OCIE2B);  // enable compare interrupt
-
-  /* Unused
-  // enable and config fast switch interrupt
-  //  MCUCR |= BIT(ISC00);  // any change
-  //  MCUCR |= BIT(ISC01);  // falling edge
-  //  GICR |= BIT(INT0);
-  */
-
-  // timer for bear head pwm
-  // TCCR1B = BIT(CS10);           // F_CPU / 1
-  // TCCR1B = BIT(CS11);           // F_CPU / 8     
-  TCCR1B = BIT(CS11)|BIT(CS10); // F_CPU / 64    125kHz @ 8MHz,  250kHz @ 16Mhz
-  // TCCR1B = BIT(CS12);           // F_CPU / 256   62.5kHZ @ 16 Mhz
-  // TCCR1B = BIT(CS12)|BIT(CS10); // F_CPU / 1024
-  low(BEAR_PORT, BEAR_MASK);
-  output(BEAR_DDR, BEAR_MASK);
-}
-
-
-//board bus interrupt - Currently Unused
-ISR(INT1_vect)
-{
 }
