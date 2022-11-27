@@ -1,9 +1,9 @@
 PRJ = tweenpin
 
 MCU = atmega1284
-CLK = 16E6
+CLK = 16000000
 
-SRC = $(PRJ).c display.c fastswitch.c io.c uart.c sound.c lamp.c slowswitch.c solenoid.c util.c
+SRC = $(PRJ).c display.c fastswitch.c io.c uart.c timers.c sound.c lamp.c slowswitch.c solenoid.c timer.c
 
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
 CFLAGS   = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE) -gdwarf-2 -std=gnu99 -funsigned-char -funsigned-bitfields
@@ -36,7 +36,7 @@ write-fuse-internal-rc:
 	$(AVRDUDE) -U lfuse:w:0xe2:m
 	
 flash: all
-	$(AVRDUDE) -U flash:w:$(PRJ).hex:i
+	$(AVRDUDE) -V -u -U flash:w:$(PRJ).hex:i
 
 disasm: $(PRJ).elf
 	$(OBJDUMP) -d $(PRJ).elf

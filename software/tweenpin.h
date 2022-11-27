@@ -3,8 +3,12 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <ctype.h> 
+#include <assert.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include <util/delay.h>
 #include <util/atomic.h>
 #include "timers.h"
@@ -14,7 +18,15 @@ typedef bool    boolean;
 #define TRUE    true
 #define FALSE   false
 
-#define BIT(x) (1<<(x))
+#define BIT(x)  _BV(x)
+
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+#ifndef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+
 
 #define output(ddr,mask)        \
   do {                          \
@@ -37,13 +49,6 @@ typedef bool    boolean;
 
 #define ATOMIC(blah) { DECLARE_INT_STATE; DISABLE_INTS(); blah RESTORE_INTS(); }
 
-//PDA0..7 = highseed solenoids 0-7
-//PC6..7 = highspeed solenoids 8-9
-//PB0 = cs-sound
-//PB1 = cs-display
-//PC0 = io-cs[0:3]
-//PC1 = io-cs[4:7]
-//PD4..7 = highspeed switches
 
 
 #define SPI_PORT            PORTB
@@ -461,13 +466,21 @@ void spiWrite(uint8_t byte);
 #define __delay_ms _delay_ms
 
 uint16_t getSysTime(void);
-void setTimer( timerEvent timer, uint16_t time, uint16_t data );
-void cancelTimer(timerEvent timer);
-void setIfActiveTimer( timerEvent timer, uint16_t data );
-boolean isActiveTimer( timerEvent timer );
+void setTimer( timerEvent id, uint16_t time, uint16_t data );
+void cancelTimer(timerEvent id);
+void setIfActiveTimer( timerEvent id, uint16_t data );
+boolean isActiveTimer( timerEvent id );
 void driveTimers(void);
 
-void bearPWM(uint16_t width);
+void flipperInitPulse(void);
+void flipperEnableSolenoids(bool enable);
+void flipperSetPulseLeft(uint8_t perc);
+void flipperSetPulseRight(uint8_t perc);
+uint8_t flipperGetPulseLeft(void);
+uint8_t flipperGetPulseRight(void);
+
+void bearInitPulse(void);
+void bearSetPulse(uint8_t pulse);
 
 //////////////////////////////////
 // game play
@@ -502,12 +515,14 @@ extern nonVolatiles_t nonVolatiles;
 
 typedef enum {
   BEAR_OPEN,
+  BEAR_HOLD_OPEN,
   BEAR_CHEW_CLOSE,
   BEAR_CHEW_OPEN,
   BEAR_EJECT,
   BEAR_EJECT_1,
   BEAR_EJECT_2,
   BEAR_CLOSE,
+  BEAR_HOLD_CLOSE,
   BEAR_TEST
 } bearStates;
 
