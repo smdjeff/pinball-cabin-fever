@@ -6,8 +6,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <avr/pgmspace.h>
-#include <avr/wdt.h>
 
 #include "tweenpin.h"
 
@@ -29,27 +27,52 @@ nonVolatiles_t nonVolatiles = {0,};
 
 int main (void)
 {  
+  wdt_reset();
+  wdt_enable(WDTO_1S);
+  
   initIO();
-  bootDisplay();
+  initSolenoids();
+  flipperInitPulse();
+  bearInitPulse();
+  initFastSwitches();
+  initDisplay();
   initSound();
+  
   resetGame();
-
+    
   loadNonVolatiles();
   
   initTimers();
+  
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
-  setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
+  // setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
   setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
-
+  
+  setTimer(WATCHDOG_TMR, ONE_SECOND, 0);
+  
   sei();
 
   for (;; )
   {
-    wdt_reset();
+    // the only things done in interrupt context are incremeting the system tick
+    // and the sound uart tx fifo. this increases reliability and makes the 
+    // system more deterministic. it also reduces the ATOMIC_BLOCK() clutter 
 
     driveLamps();
     driveSlowSwitches();
-    driveTimers();    
+    driveFastSwitches();
+    driveSolenoids();
+    driveTimers();
+  }
+}
+
+void watchdogTimer(timerEvent id, uint16_t data) {
+  static uint16_t check = ~0;
+  if ( check == ~data ) {
+    wdt_reset();
+    data++;
+    check = ~data;
+    setTimer(WATCHDOG_TMR, HALF_SECOND, data);
   }
 }
 
@@ -120,14 +143,14 @@ const uint8_t vertLamps[15][3] PROGMEM = {
     LAMP_BONUS_6,
   },
   {
-    LAMP_LANE_LEFT1,
-    LAMP_LANE_RIGHT1,
-    LAMP_LANE_RIGHT1,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
   },
   {
     LAMP_TARGET_LOWER,
-    LAMP_LANE_LEFT2,
-    LAMP_LANE_RIGHT2,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_RIGHT,
   }
 };
 
@@ -197,12 +220,12 @@ const uint8_t horizLamps[11][6] PROGMEM = {
     LAMP_BONUS_6,
   },
   {
-    LAMP_LANE_LEFT1,
-    LAMP_LANE_LEFT2,
-    LAMP_LANE_LEFT2,
-    LAMP_LANE_LEFT2,
-    LAMP_LANE_LEFT2,
-    LAMP_LANE_LEFT2,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_LEFT,
+    LAMP_LANE_LEFT,
   },
   {
     LAMP_TARGET_2_L,
@@ -213,17 +236,17 @@ const uint8_t horizLamps[11][6] PROGMEM = {
     LAMP_TARGET_2_M,
   },
   {
-    LAMP_LANE_RIGHT1,
-    LAMP_LANE_RIGHT2,
-    LAMP_LANE_RIGHT2,
-    LAMP_LANE_RIGHT2,
-    LAMP_LANE_RIGHT2,
-    LAMP_LANE_RIGHT2,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
+    LAMP_LANE_RIGHT,
   }
 };
 
 
-void attractLamps(timerEvent evt, uint16_t state)
+void attractLamps(timerEvent id, uint16_t state)
 {
   static uint8_t stateCount;
   static uint8_t stateRepeat;
@@ -379,7 +402,7 @@ void attractTimerButton( fastSwitch theSwitch )
 
 
 // cycles display through attract states
-void attractTimer(timerEvent evt, uint16_t state)
+void attractTimer(timerEvent id, uint16_t state)
 {
   static uint8_t cycles = 0;
 
@@ -498,7 +521,7 @@ void boxTimer(timerEvent evt, uint16_t state)
 }
 
 
-void crazyModeTimer(timerEvent evt, uint16_t state)
+void crazyModeTimer(timerEvent id, uint16_t state)
 {
   if (state++>4) {
     state = 0;
@@ -508,7 +531,7 @@ void crazyModeTimer(timerEvent evt, uint16_t state)
 }
 
 
-void spinTimer(timerEvent evt, uint16_t state)
+void spinTimer(timerEvent id, uint16_t state)
 {
   static uint8_t countDown = 0;
   static uint8_t count = 0;
@@ -546,7 +569,7 @@ void matchTimerButton( fastSwitch theSwitch )
   match[0] = rand() % 9;
 }
 
-void matchTimer(timerEvent evt, uint16_t state)
+void matchTimer(timerEvent id, uint16_t state)
 {
   static uint8_t stateCount;
   static uint8_t repeatStateCount;
@@ -613,7 +636,7 @@ void matchTimer(timerEvent evt, uint16_t state)
     case 5:
       // match end
       if ( match[0] == match[6] ) {
-        setSolenoidMode( SOLENOID_KNOCKER, SOLENOID_FLASH_STATE, TEN_HUNDRETH_SECONDS, 1);
+        hitSolenoid( SOLENOID_KNOCKER );
         increaseCredits( nonVolatiles.coinsPerGame, FALSE );
         nonVolatiles.freeGameMatch++;
         setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FREE);
@@ -627,20 +650,20 @@ void matchTimer(timerEvent evt, uint16_t state)
 }
 
 
-void gameTimer(timerEvent evt, uint16_t state)
+void gameTimer(timerEvent id, uint16_t state)
 {
   if(!gameOn) return;
 
   switch(state) {
   case GAME_BALL_LOAD:
     ballIsLoading = TRUE;
-    setSolenoidMode( SOLENOID_BALL_LOADER, SOLENOID_FLASH_STATE, QUARTER_SECOND, 1 );
+    hitSolenoid( SOLENOID_BALL_LOADER );
     displayString( DISP_BLANK, DISP_B, DISP_A, DISP_L, DISP_L, DISP_BLANK, DISP_BLANK, DISP_BLANK );
     writeDisplayNum( DISPLAY_DIG7, ballInPlay );
     setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
     break;    
   case GAME_BALL_AGAIN:
-    setSolenoidMode( SOLENOID_BALL_LOADER, SOLENOID_FLASH_STATE, QUARTER_SECOND, 1 );
+    hitSolenoid( SOLENOID_BALL_LOADER );
     displayString( DISP_BLANK, DISP_BLANK, DISP_S, DISP_H, DISP_O, DISP_O, DISP_T, DISP_BLANK );
     setTimer(GAME_TMR, ONE_SECOND, GAME_BALL_AGAIN_1);
     break;
@@ -662,33 +685,19 @@ void gameTimer(timerEvent evt, uint16_t state)
   case GAME_TILT:
     scoreDisplayDisabled = TRUE;
     setTimer(BEAR_TMR, ONE_SECOND, BEAR_CLOSE); //BEAR_EJECT
-    setLampMode( LAMP_PLAYFIELD_GI, LAMP_FLASH_STATE, TWO_SECONDS, 1 );
-    for (int i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
+    for (int i=0; i<=LAMP_LAST; i++) {
       setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
     }
-    setSolenoidMode( SOLENOID_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
-    setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
+    setLampMode( LAMP_PLAYFIELD_GI, LAMP_FLASH_STATE, THREE_SECONDS, 1 );
+    setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
+    playSound( SOUND_GAME_TILT );
+    flipperEnableSolenoids( false );
     displayString( DISP_BLANK, DISP_BLANK, DISP_T, DISP_I, DISP_L, DISP_T, DISP_BLANK, DISP_BLANK );
+    setTimer(GAME_TMR, THREE_SECONDS, GAME_SCORE);
     break;
   default:
     break;
   }
-}
-
-void bearSetPulse(uint8_t pulse)
-{
-  // bear head pwm
-  // timer 0 is an 8 bit timer
-  low(BEAR_PORT, BEAR_MASK);
-  output(BEAR_DDR, BEAR_MASK);
-  
-  // 1024/16 MHz = 64 us units. 
-  // 1 ms servo pulse = 15
-  // 2 ms servo pulse = 31
-  OCR0B = pulse;
-  TCCR0A = _BV(COM0B1); // clear OC0B on Compare Match, set OC0B at BOTTOM, (non-inverting mode)
-  TCCR0A |= _BV(WGM01) | _BV(WGM00);  // fast pwm mode
-  TCCR0B = _BV(CS02) | _BV(CS00); // 1024 prescaller
 }
 
 // cycles the bear through its various motions
@@ -699,8 +708,12 @@ void bearTimer(timerEvent id, uint16_t state)
 
   switch(state) {
   case BEAR_OPEN:
+    playSound( SOUND_BEAR_OPEN );
+    playSound( SOUND_BEAR_MUSIC );
+    // thru...
+  case BEAR_HOLD_OPEN:
     bearSetPulse(nonVolatiles.headOpen);
-    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_OPEN);  // keep open
+    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_HOLD_OPEN);  // keep open
     break;
   case BEAR_CHEW_CLOSE:
     if(cycles == 0) cycles = 3;  // first time
@@ -732,7 +745,7 @@ void bearTimer(timerEvent id, uint16_t state)
     break;
   case BEAR_EJECT_2:
     cycles = 0;
-    setSolenoidMode(SOLENOID_BEAR_CAPTURE, SOLENOID_FLASH_PAUSE_STATE, QUARTER_SECOND, 1);
+    hitSolenoid( SOLENOID_BEAR_CAPTURE );
     setTimer(BEAR_TMR, HALF_SECOND, BEAR_CLOSE);
     // and back to shoot the blinking lights
     for(int i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
@@ -743,9 +756,12 @@ void bearTimer(timerEvent id, uint16_t state)
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_TEST);
     break;
   case BEAR_CLOSE:
+    if (!tilt) { playSound( SOUND_MAIN_MUSIC ); }
+    // thru...
+  case BEAR_HOLD_CLOSE:
   default:
     bearSetPulse(nonVolatiles.headClose);
-    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CLOSE);  // keep closed
+    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_HOLD_CLOSE);  // keep closed
     break;
   }
 }
@@ -755,18 +771,20 @@ void resetGame(void)
 {
   uint8_t i;
   gameOn = FALSE;
+
+  flipperEnableSolenoids( false );
+
   for ( i = 0; i < LAMP_QTY; i++ )
   {
     setLampMode(i, LAMP_OFF_STATE, 0, 1);
   }
 
-  setSolenoidMode( SOLENOID_FLIPPER_LEFT, SOLENOID_IDLE_STATE, 0, 1);
-  setSolenoidMode( SOLENOID_FLIPPER_RIGHT, SOLENOID_IDLE_STATE, 0, 1);
   setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_PLAYFIELD_GI, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_BACKBOX_RIVER, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_BACKBOX_CABIN, LAMP_ON_STATE, 0, INFINITE );
-  
+  setLampMode( LAMP_START_BUTTON, LAMP_BLINK_STATE, HALF_SECOND, INFINITE );
+    
   cancelTimer(CRAZY_TMR);
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
@@ -786,6 +804,7 @@ void startGame(void)
   cancelTimer(ATTRACT_TMR);
   cancelTimer(ATTRACT_LAMP_TMR);
   setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
+  setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
 
   nextBall();
 }
@@ -794,6 +813,9 @@ void nextBall(void)
 {
   tilt = FALSE;
   tiltSense = 0;
+  flipperEnableSolenoids( true );
+  playSound( SOUND_MAIN_MUSIC );
+
   setLampMode( LAMP_BACKBOX_TILT, LAMP_OFF_STATE, 0, INFINITE );
   setLampMode( LAMP_BACKBOX_BEAR_1, LAMP_ON_STATE, 0, INFINITE );
   setLampMode( LAMP_BACKBOX_BEAR_2, LAMP_ON_STATE, 0, INFINITE );
@@ -832,7 +854,7 @@ void nextBall(void)
 
 void gameOver(void)
 {
-  playSound( SOUND_BACKGROUND_STOP );
+  playSound( SOUND_STOP );
   playSound( SOUND_GAME_END );
   resetGame();
   if ( highScoreExceeded ) {
@@ -841,7 +863,7 @@ void gameOver(void)
     memcpy( nonVolatiles.highScore, score, sizeof(score) );
     saveNonVolatiles();
   }
-  setTimer(MATCH_TMR, ONE_HUNDRETH_SECOND, 0);
+//  setTimer(MATCH_TMR, ONE_HUNDRETH_SECOND, 0);
 }
 
 
@@ -864,7 +886,7 @@ void increaseCredits(uint8_t value, boolean coinMode)
   credits += value;
   if  (credits > 99) credits = 99;
   if (coinMode ) {
-    setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
+    hitSolenoid( SOLENOID_BELL );
     setIfActiveTimer(ATTRACT_TMR, ATTRACT_CREDITS_1);  
   }
 }
@@ -970,7 +992,7 @@ void increaseScore(const uint8_t *bcdVal)
   uint8_t temp, carry=0;
 
   if ( (crazyMode) || (nonVolatiles.quiteMode == 0) ) {
-    setSolenoidMode( SOLENOID_BELL, SOLENOID_FLASH_STATE, THREE_HUNDRETH_SECONDS, 1 );
+    hitSolenoid( SOLENOID_BELL );
   }
 
   for(j=0; j<multiplier; j++) {
@@ -999,7 +1021,7 @@ void increaseScore(const uint8_t *bcdVal)
       {
         highScoreExceeded = TRUE;
         setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
-        setSolenoidMode( SOLENOID_KNOCKER, SOLENOID_FLASH_STATE, TEN_HUNDRETH_SECONDS, 1);
+        hitSolenoid( SOLENOID_KNOCKER );
         break;
       }
       if ( score[i] < nonVolatiles.highScore[i] )
@@ -1080,7 +1102,7 @@ void configMode(slowSwitch sw)
             nonVolatiles.coinsPerGame++;
           break;
         case modeReset:
-          setSolenoidMode( SOLENOID_KNOCKER, SOLENOID_FLASH_STATE, TEN_HUNDRETH_SECONDS, 1);
+          hitSolenoid( SOLENOID_KNOCKER );
           resetNonVolatiles();
           break;
         default:

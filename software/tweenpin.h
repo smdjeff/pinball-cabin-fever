@@ -58,47 +58,62 @@ typedef bool    boolean;
 #define SPI_MISO            BIT(6)
 #define SPI_SCK             BIT(7)
 
-#define FASTSWITCH_PORT     PORTD
-#define FASTSWITCH_DDR      DDRD
-#define FASTSWITCH_PIN      PIND
-#define FASTSWITCH_MASK     (BIT(4)|BIT(5)|BIT(6)|BIT(7))
-#define FASTSWITCH_QTY      4
+#define FASTSWITCH_BUMPER_PORT      PORTD
+#define FASTSWITCH_BUMPER_DDR       DDRD
+#define FASTSWITCH_BUMPER_PIN       PIND
+#define FASTSWITCH_BUMPER_MASK      (FASTSWITCH_POP_BUMPER_UPPER|FASTSWITCH_POP_BUMPER_LOWER)
+#define FASTSWITCH_POP_BUMPER_UPPER (BIT(4))
+#define FASTSWITCH_POP_BUMPER_LOWER (BIT(5)) 
 
-#define BEAR_PORT     PORTB
-#define BEAR_DDR      DDRB
-#define BEAR_PIN      PINB
-#define BEAR_MASK     (BIT(4))
+#define FASTSWITCH_FLIPPER_PORT     PORTC
+#define FASTSWITCH_FLIPPER_DDR      DDRC
+#define FASTSWITCH_FLIPPER_PIN      PINC
+#define FASTSWITCH_FLIPPER_MASK     (FASTSWITCH_FLIPPER_LEFT|FASTSWITCH_FLIPPER_RIGHT)
+#define FASTSWITCH_FLIPPER_RIGHT    (BIT(6))
+#define FASTSWITCH_FLIPPER_LEFT     (BIT(7))
+
+#define SOLENOID_FLIPPER_PORT       PORTD
+#define SOLENOID_FLIPPER_DDR        DDRD
+#define SOLENOID_FLIPPER_MASK       (SOLENOID_FLIPPER_LEFT|SOLENOID_FLIPPER_RIGHT)
+#define SOLENOID_FLIPPER_LEFT       BIT(6)
+#define SOLENOID_FLIPPER_RIGHT      BIT(7)
+#define SOLENOID_FLIPPER_LEFT_OCR   OCR2B
+#define SOLENOID_FLIPPER_RIGHT_OCR  OCR2A
+
+#define BEAR_PORT           PORTB
+#define BEAR_DDR            DDRB
+#define BEAR_PIN            PINB
+#define BEAR_MASK           (BIT(4))
+#define BEAR_OCR            OCR0B
 
 #define SOLENOID_PORT       PORTA
 #define SOLENOID_DDR        DDRA
 #define SOLENOID_MASK       0xFF
 #define SOLENOID_QTY        8
-#define SOLENOID_PORT_H     PORTC
-#define SOLENOID_DDR_H      DDRC
-#define SOLENOID_MASK_H     (BIT(6)|BIT(7))
-#define SOLENOID_QTY_H      2
 
-#define BUS_CONTROL_PORT    PORTB
-#define BUS_CONTROL_DDR     DDRB
-#define BUS_SOUND_CS        BIT(0)
-#define BUS_DISPLAY_LOAD    BIT(1)
+#define DISPLAY_PORT        PORTB
+#define DISPLAY_DDR         DDRB
+#define DISPLAY_CS          BIT(1)
 
 #define IO_CONTROL_PORT     PORTB
 #define IO_CONTROL_DDR      DDRB
 #define IO_CONTROL_RESET    BIT(3)
 #define IO_CS_PORT          PORTC
 #define IO_CS_DDR           DDRC
-#define IO_CS_0123          BIT(0)
-#define IO_CS_4567          BIT(1)
+#define IO_CS_0123          BIT(2)
+#define IO_CS_4567          BIT(3)
 
-#define IO_BITS               8
 #define IO_INPUT_CHIP_0       0
-#define IO_INPUT_CHIP_COUNT   3
-#define IO_INPUT_CHIP_MAX     IO_INPUT_CHIP_0 + IO_INPUT_CHIP_COUNT
+#define IO_INPUT_CHIP_1       1
+#define IO_INPUT_CHIP_2       2
+#define IO_INPUT_CHIP_MAX     IO_INPUT_CHIP_2 + 1
+#define IO_INPUT_CHIP_COUNT   IO_INPUT_CHIP_MAX + 1
 #define IO_OUTPUT_CHIP_0      3
-#define IO_OUTPUT_CHIP_COUNT  5
-#define IO_OUTPUT_CHIP_MAX    IO_OUTPUT_CHIP_0 + IO_OUTPUT_CHIP_COUNT
-#define IO_CHIP_COUNT         (IO_INPUT_CHIP_COUNT + IO_OUTPUT_CHIP_COUNT)
+#define IO_OUTPUT_CHIP_1      4
+#define IO_OUTPUT_CHIP_2      5
+#define IO_OUTPUT_CHIP_3      6
+#define IO_OUTPUT_CHIP_4      7
+#define IO_OUTPUT_CHIP_MAX    IO_OUTPUT_CHIP_4 + 1
 
 
 // io-expander
@@ -143,7 +158,6 @@ typedef bool    boolean;
 #define DISPLAY_FONT_BLANK  15
 
 
-
 typedef enum
 {
   ONE_HUNDRETH_SECOND = 2,
@@ -171,19 +185,24 @@ typedef enum {
   CRAZY_TMR,
   SPIN_TMR,
   BOX_TMR,
-  SOLENOID_TMR,
+  MUSIC_TMR,
+  WATCHDOG_TMR,
   TIMER_QTY,
 } timerEvent;
 
-void attractLamps(timerEvent evt, uint16_t data);
-void attractTimer(timerEvent evt, uint16_t data);
-void matchTimer(timerEvent evt, uint16_t data);
-void bearTimer(timerEvent evt, uint16_t data);
-void gameTimer(timerEvent evt, uint16_t state);
-void crazyModeTimer(timerEvent evt, uint16_t state);
-void spinTimer(timerEvent evt, uint16_t state);
-void boxTimer(timerEvent evt, uint16_t state);
-void solenoidTimer(timerEvent evt, uint16_t state);
+void attractLamps(timerEvent id, uint16_t data);
+void attractTimer(timerEvent id, uint16_t data);
+void matchTimer(timerEvent id, uint16_t data);
+void bearTimer(timerEvent id, uint16_t data);
+void gameTimer(timerEvent id, uint16_t state);
+void crazyModeTimer(timerEvent id, uint16_t state);
+void spinTimer(timerEvent id, uint16_t state);
+void boxTimer(timerEvent id, uint16_t state);
+void musicTimer(timerEvent id, uint16_t state);
+void watchdogTimer(timerEvent id, uint16_t data);
+void systemTickISR(void);
+void flipperTickISR(void);
+void initTimers(void);
 
 
 //////////////////////////////////
@@ -221,9 +240,8 @@ typedef enum
   SWITCH_QTY = 24
 } slowSwitch;
 
-void driveSlowSwitchISR(void);
 void driveSlowSwitches(void);
-
+void initSlowSwitches(void);
 
 //////////////////////////////////
 // Solenoids
@@ -231,49 +249,33 @@ void driveSlowSwitches(void);
 
 typedef enum
 {
-  SOLENOID_POP_BUMPER_UPPER = 0,
-  SOLENOID_POP_BUMPER_LOWER = 1,
-  SOLENOID_FLIPPER_RIGHT = 2,
-  SOLENOID_FLIPPER_LEFT = 3,
-  SOLENOID_BEAR_CAPTURE = 4,
-  SOLENOID_BALL_LOADER = 5,
-  SOLENOID_KNOCKER = 6,
-  SOLENOID_BELL = 7,
-  SOLENOID_UNUSED_1 = 8,
-  SOLENOID_UNUSED_2 = 9
+  SOLENOID_KNOCKER,
+  SOLENOID_BEAR_CAPTURE,
+  SOLENOID_BALL_LOADER,
+  SOLENOID_POP_BUMPER_LOWER,
+  SOLENOID_POP_BUMPER_UPPER,
+  SOLENOID_BELL,
+  // SOLENOID_6,
+  // SOLENOID_7
 } solenoid;
 
 typedef enum {
-  SOLENOID_IDLE_STATE = 0,
-  SOLENOID_HOLD_PWMOFF_STATE,
-  SOLENOID_ONESHOT_COMPLETE_STATE,
-  SOLENOID_FLASH_PAUSE_STATE,
-  // all states prior to active have solenoid driven off
-  SOLENOID_ACTIVE,
-  SOLENOID_HOLD_DRIVE_STATE,
-  SOLENOID_HOLD_PWMON_STATE,
-  SOLENOID_ONESHOT_DRIVE_STATE,
-  SOLENOID_FLASH_STATE
+  SOLENOID_OFF = 0,
+  SOLENOID_ON
 } solenoidStates;
 
-solenoidStates getSolenoidMode( solenoid sol );
-void setSolenoidMode( solenoid sol, solenoidStates mode, uint16_t time, uint8_t cycles );
-void driveSolenoidsISR(void);
-
+bool isSolenoidOn( solenoid sol );
+void hitSolenoid( solenoid sol );
+void driveSolenoids(void);
+void initSolenoids(void);
 
 //////////////////////////////////
 // Fast Switches
 //////////////////////////////////
 
-typedef enum
-{
-  FASTSWITCH_POP_BUMPER_UPPER = 0,
-  FASTSWITCH_POP_BUMPER_LOWER = 1,
-  FASTSWITCH_FLIPPER_LEFT = 2,
-  FASTSWITCH_FLIPPER_RIGHT = 3
-} fastSwitch;
-
-void driveFastSwitchISR(void);
+typedef uint8_t fastSwitch;
+void driveFastSwitches(void);
+void initFastSwitches(void);
 
 
 //////////////////////////////////
@@ -303,37 +305,38 @@ typedef enum
   LAMP_BONUS_6 = 17,
   LAMP_BEAR_ARROW = 18,
   LAMP_BEAR_MOUTH = 19,
-  LAMP_LANE_LEFT1 = 20,
-  LAMP_LANE_LEFT2 = 21,
-  LAMP_LANE_RIGHT1 = 22,
-  LAMP_LANE_RIGHT2 = 23,
-  LAMP_POP_BUMPER_UPPER = 24,
-  LAMP_POP_BUMPER_LOWER = 25,
-  LAMP_RIVER_ARROW_1 = 26,
-  LAMP_RIVER_ARROW_2 = 27,
-  LAMP_RIVER_ARROW_3 = 28,
-  LAMP_RIVER_ARROW_4 = 29,
-  LAMP_RIVER_ARROW_5 = 30,
-  LAMP_RIVER_ARROW_6 = 31,
-  LAMP_LAST_PLAYFIELD = 31,
-  LAMP_BACKBOX_TILT = 32,
-  LAMP_BACKBOX_GAME_OVER = 33,
-  LAMP_BACKBOX_RIVER = 34,
-  LAMP_BACKBOX_CABIN = 35,
-  LAMP_BACKBOX_BEAR_1 = 36,
-  LAMP_BACKBOX_BEAR_2 = 37,
-  LAMP_BACKBOX_BEAR_3 = 38,
-  LAMP_PLAYFIELD_GI = 39,  
-  LAMP_LAST = 39,
-  LAMP_QTY = 40
+  LAMP_LANE_LEFT = 20,
+  LAMP_LANE_RIGHT = 21,
+  LAMP_POP_BUMPER_UPPER = 22,
+  LAMP_POP_BUMPER_LOWER = 23,
+  LAMP_RIVER_ARROW_1 = 24,
+  LAMP_RIVER_ARROW_2 = 25,
+  LAMP_RIVER_ARROW_3 = 26,
+  LAMP_RIVER_ARROW_4 = 27,
+  LAMP_RIVER_ARROW_5 = 28,
+  LAMP_RIVER_ARROW_6 = 29,
+  
+  LAMP_LAST_PLAYFIELD = 29,
+  
+  LAMP_BACKBOX_TILT = 30,
+  LAMP_BACKBOX_GAME_OVER = 31,
+  LAMP_BACKBOX_RIVER = 32,
+  LAMP_BACKBOX_CABIN = 33,
+  LAMP_BACKBOX_BEAR_1 = 34,
+  LAMP_BACKBOX_BEAR_2 = 35,
+  LAMP_BACKBOX_BEAR_3 = 36,
+  LAMP_PLAYFIELD_GI = 37,  
+  LAMP_START_BUTTON = 38,
+  
+  LAMP_LAST = 38,
+  
+  LAMP_QTY = 39
 } lamp;
 
 typedef enum {
   LAMP_OFF_STATE = 0,
   LAMP_BLINK_OFF_STATE,
   LAMP_FLASH_INVERT_STATE, 
-  LAMP_FADE_UP_STATE,
-  LAMP_FADE_DOWN_STATE,
   LAMP_FLASH_STATE, // on->off->on
   LAMP_BLINK_STATE, // off->on->off
   LAMP_ON_STATE,
@@ -411,7 +414,7 @@ void displayBCD(uint8_t *bcd, uint8_t size);
 void displayBinary(uint8_t value);
 void writeDisplay( uint8_t reg, uint8_t data );
 void writeDisplayNum( uint8_t reg, uint8_t data );
-void bootDisplay(void);
+void initDisplay(void);
 void resetDisplay(void);
 void displayLong(uint32_t value,uint8_t digits);
 void displayText(const uint8_t* str);
@@ -425,25 +428,30 @@ void displayClear(void);
 //////////////////////////////////
 
 typedef enum {
-  SOUND_STOP = 0x00,
-  SOUND_SNAKE = 0x01,       // rattler
-  SOUND_SPINNER = 0x02,     // water park screams
-  SOUND_BEAR_TARGETS = 0x03,  // large animal grunt
-  SOUND_BEAR_OPEN = 0x04,   // grizzly growl
-  SOUND_BEAR_CHEW = 0x05,   // large animal chew
-  SOUND_LOGS = 0x06,        // beavers (or music)
-  SOUND_BONUS = 0x07,       // buzz saw
-  SOUND_LIZARD = 0x08,      // lizard?
-  SOUND_DRAIN = 0x09,       // drop into water
-  SOUND_GAME_START = 0x0A,  // ?
-  SOUND_GAME_END = 0x0B,    // ?
-  SOUND_MATCHING = 0x0C,    // clicks
-  SOUND_BACKGROUND_STOP = 0x80,  
-  SOUND_BACKGROUND = 0x81,  // babbling brook
+  SOUND_STOP,
+  SOUND_SNAKE,
+  SOUND_SPINNER,
+  SOUND_BEAR_TARGETS,
+  SOUND_BEAR_OPEN,
+  SOUND_BEAR_CHEW,
+  SOUND_BEAR_MUSIC,
+  SOUND_LOGS,
+  SOUND_BONUS,
+  SOUND_LIZARD,
+  SOUND_DRAIN,
+  SOUND_GAME_START,
+  SOUND_GAME_END,
+  SOUND_GAME_TILT,
+  SOUND_COIN,
+  SOUND_MATCHING,
+  SOUND_MAIN_MUSIC
 } sounds_t;
 
-void playSound( sounds_t sound );
 void initSound( void );
+void playSound( sounds_t sound );
+void playEffect( const char *progmem_s );
+void playMusic( const char *progmem_s );
+void stopMusic( void );
 
 //////////////////////////////////
 // IO
