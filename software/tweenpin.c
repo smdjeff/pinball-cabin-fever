@@ -20,7 +20,7 @@ boolean scoreDisplayDisabled = FALSE;
 boolean ballIsLoading = FALSE;
 boolean crazyMode = FALSE;
 
-static score_t score = {0,};
+static uint32_t score = 0;
 static uint8_t credits = 0;
 nonVolatiles_t nonVolatiles = {0,};
 
@@ -45,7 +45,7 @@ int main (void)
   initTimers();
   
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
-  // setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
+  setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
   setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
   
   setTimer(WATCHDOG_TMR, ONE_SECOND, 0);
@@ -250,8 +250,10 @@ void attractLamps(timerEvent id, uint16_t state)
 {
   static uint8_t stateCount;
   static uint8_t stateRepeat;
-  uint8_t i;
 
+  // // printf("0123456\n");
+  // return;
+  
   switch(state)
   {
     case 0: 
@@ -279,7 +281,7 @@ void attractLamps(timerEvent id, uint16_t state)
     case 2:
       // left to right and back, mostly off
       setTimer(ATTRACT_LAMP_TMR, FIVE_HUNDRETH_SECONDS, state);
-      for (i=0; i<6; i++) {
+      for (uint8_t i=0; i<6; i++) {
         lamp light;
         if ( (stateRepeat & 0x01) == 0 ){
           light = pgm_read_byte(&horizLamps[stateCount][i]);
@@ -299,7 +301,7 @@ void attractLamps(timerEvent id, uint16_t state)
       
     case 3:
       // all on
-      for (i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
+      for (uint8_t i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
         setLampMode( i, LAMP_ON_STATE, 0, INFINITE );
       }
       setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, ++state);
@@ -324,7 +326,7 @@ void attractLamps(timerEvent id, uint16_t state)
     case 5:
       // top to bottom and back, mostly off
       setTimer(ATTRACT_LAMP_TMR, FIVE_HUNDRETH_SECONDS, state);
-      for (i=0; i<3; i++) {
+      for (uint8_t i=0; i<3; i++) {
         lamp light;
         if ( (stateRepeat & 0x01) == 0 ){
           light = pgm_read_byte(&vertLamps[stateCount][i]);
@@ -344,7 +346,7 @@ void attractLamps(timerEvent id, uint16_t state)
 
     case 6:
       // all on
-      for (i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
+      for (uint8_t i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
         setLampMode( i, LAMP_ON_STATE, 0, INFINITE );
       }
       setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0/*state*/);
@@ -410,10 +412,8 @@ void attractTimer(timerEvent id, uint16_t state)
 
   switch(state) {
   case ATTRACT_PLAY:
-    // "PLAY"
     displayState = ATTRACT_PLAY;
-    resetDisplay(); // just in case
-    displayString( DISP_BLANK, DISP_BLANK, DISP_P, DISP_L, DISP_A, DISP_Y, DISP_BLANK, DISP_BLANK );
+    displayText("play");
     setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_PINBALL);
     cycles = 0;
     break;
@@ -421,10 +421,9 @@ void attractTimer(timerEvent id, uint16_t state)
     if(cycles == 0) cycles = 8;
     if(--cycles) {
       if(cycles & 0x01) {
-        // "PINBALL"
-        displayString( DISP_BLANK, DISP_P, DISP_I, DISP_N, DISP_B, DISP_A, DISP_L, DISP_L );
+        displayText( "pinball" );
       } else {
-        displayClear();
+        clearDisplay();
       }
       setTimer(ATTRACT_TMR, QUARTER_SECOND, ATTRACT_PINBALL);    
     } else {
@@ -438,49 +437,49 @@ void attractTimer(timerEvent id, uint16_t state)
     break;
   case ATTRACT_HIGH_SCORE:
     displayState = ATTRACT_HIGH_SCORE;
-    displayString( DISP_H, DISP_I, DISP_BLANK, DISP_S, DISP_C, DISP_O, DISP_R, DISP_E );
+    displayText( "hi score" );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_HIGH_SCORE_1);
     break;
   case ATTRACT_HIGH_SCORE_1:
-    displayBCD(nonVolatiles.highScore,sizeof(nonVolatiles.highScore));
+    displayText( "%ld", nonVolatiles.highScore );
     setTimer(ATTRACT_TMR, THREE_SECONDS, ATTRACT_GAME_OVER);
     break;
   case ATTRACT_GAME_OVER:
     displayState = ATTRACT_GAME_OVER;
-    displayString( DISP_G, DISP_A, DISP_M, DISP_E, DISP_O, DISP_V, DISP_E, DISP_R );
+    displayText( "gameover" );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_CREDITS);    
     break;
   case ATTRACT_CREDITS:
     if ( nonVolatiles.coinsPerGame > 0 ) {
-      displayString( DISP_BLANK, DISP_BLANK, DISP_C, DISP_O, DISP_I, DISP_N, DISP_S, DISP_BLANK );
+      displayText( "coins" );
       setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_CREDITS_1);
     } else {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
     }
     break;
   case ATTRACT_CREDITS_1:
-    displayCredits();
+    displayText("%d of %d", credits, nonVolatiles.coinsPerGame );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PLAY);
     break;
   case ATTRACT_INSERT_COINS:
-    displayCredits();
+    displayText("%d of %d", credits, nonVolatiles.coinsPerGame );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_INSERT_COINS_1);
     break;
   case ATTRACT_INSERT_COINS_1:
-    displayString( DISP_BLANK, DISP_I, DISP_N, DISP_S, DISP_E, DISP_R, DISP_T, DISP_BLANK );
+    displayText( "insert");
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_INSERT_COINS_2);
     break;
   case ATTRACT_INSERT_COINS_2:
-    displayString( DISP_BLANK, DISP_BLANK, DISP_C, DISP_O, DISP_I, DISP_N, DISP_S, DISP_BLANK );
+    displayText( "coins" );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_BLANK);
     break;
   case ATTRACT_BLANK:
-    displayClear();
+    clearDisplay();
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PLAY);
     break;
   case ATTRACT_FREE: 
     displayState = ATTRACT_FREE;
-    displayString( DISP_F, DISP_R, DISP_E, DISP_E, DISP_G, DISP_A, DISP_M, DISP_E );
+    displayText( "freegame" );
     setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_SCORE);
     break;
   }
@@ -562,91 +561,89 @@ void spinTimer(timerEvent id, uint16_t state)
 
 
 
-static score_t match;
-
 void matchTimerButton( fastSwitch theSwitch )
 {
-  match[0] = rand() % 9;
+  // match[0] = rand() % 9;
 }
 
 void matchTimer(timerEvent id, uint16_t state)
 {
-  static uint8_t stateCount;
-  static uint8_t repeatStateCount;
-  
-  playSound( SOUND_MATCHING );
-  
-  switch (state)
-  {
-    case 0:
-      memcpy( match, score, sizeof(score) );
-      setTimer(BOX_TMR, QUARTER_SECOND, 0);
-      setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
-      break;
-    case 1: 
-      // when the score is nnnn ny0n
-      // we're matching against y0 so show those in the right side
-      repeatStateCount = 0;
-      match[6] = score[5];
-      match[7] = 0;
-      setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
-      break;
-    case 2:
-      // pick a new match 
-      // 01234567
-      // i0....n0
-      match[0] = rand() % 9;
-      displayClear();
-      writeDisplayNum( DISPLAY_DIG0, match[0] );
-      writeDisplayNum( DISPLAY_DIG1, 0 );
-      writeDisplayNum( DISPLAY_DIG6, match[6] );
-      writeDisplayNum( DISPLAY_DIG7, 0 );
-      stateCount = 0;
-      setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
-      break;
-    case 3:
-      // move the match right
-      // 01234567
-      // .i0...n0
-      writeDisplay(    DISPLAY_DIG0 + stateCount, DISP_BLANK );
-      writeDisplayNum( DISPLAY_DIG1 + stateCount, match[0] );
-      writeDisplayNum( DISPLAY_DIG2 + stateCount, 0 );
-      if ( stateCount++>2 ) {
-        stateCount = 0;
-        if (repeatStateCount++<10) {
-          state++;
-        } else {
-          state+=2;
-        }
-      }
-      setTimer(MATCH_TMR, FIVE_HUNDRETH_SECONDS, state);
-      break;
-    case 4:
-      // move the match left
-      // 01234567
-      // ....i0n0
-      writeDisplayNum( DISPLAY_DIG3 - stateCount, match[0] );
-      writeDisplayNum( DISPLAY_DIG4 - stateCount, 0 );
-      writeDisplay(    DISPLAY_DIG5 - stateCount, DISP_BLANK );
-      if ( stateCount++>2 ) {
-        state = 2;
-      }
-      setTimer(MATCH_TMR, FIVE_HUNDRETH_SECONDS, state);
-      break;
-    case 5:
-      // match end
-      if ( match[0] == match[6] ) {
-        hitSolenoid( SOLENOID_KNOCKER );
-        increaseCredits( nonVolatiles.coinsPerGame, FALSE );
-        nonVolatiles.freeGameMatch++;
-        setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FREE);
-      } else {
+  // static uint8_t stateCount;
+  // static uint8_t repeatStateCount;
+  // 
+  // playSound( SOUND_MATCHING );
+  // 
+  // switch (state)
+  // {
+  //   case 0:
+  //     memcpy( match, score, sizeof(score) );
+  //     setTimer(BOX_TMR, QUARTER_SECOND, 0);
+  //     setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
+  //     break;
+  //   case 1: 
+  //     // when the score is nnnn ny0n
+  //     // we're matching against y0 so show those in the right side
+  //     repeatStateCount = 0;
+  //     match[6] = score[5];
+  //     match[7] = 0;
+  //     setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
+  //     break;
+  //   case 2:
+  //     // pick a new match 
+  //     // 01234567
+  //     // i0....n0
+  //     match[0] = rand() % 9;
+  //     clearDisplay();
+  //     writeDisplayNum( DISPLAY_DIG0, match[0] );
+  //     writeDisplayNum( DISPLAY_DIG1, 0 );
+  //     writeDisplayNum( DISPLAY_DIG6, match[6] );
+  //     writeDisplayNum( DISPLAY_DIG7, 0 );
+  //     stateCount = 0;
+  //     setTimer(MATCH_TMR, TEN_HUNDRETH_SECONDS, ++state);
+  //     break;
+  //   case 3:
+  //     // move the match right
+  //     // 01234567
+  //     // .i0...n0
+  //     writeDisplay(    DISPLAY_DIG0 + stateCount, DISP_BLANK );
+  //     writeDisplayNum( DISPLAY_DIG1 + stateCount, match[0] );
+  //     writeDisplayNum( DISPLAY_DIG2 + stateCount, 0 );
+  //     if ( stateCount++>2 ) {
+  //       stateCount = 0;
+  //       if (repeatStateCount++<10) {
+  //         state++;
+  //       } else {
+  //         state+=2;
+  //       }
+  //     }
+  //     setTimer(MATCH_TMR, FIVE_HUNDRETH_SECONDS, state);
+  //     break;
+  //   case 4:
+  //     // move the match left
+  //     // 01234567
+  //     // ....i0n0
+  //     writeDisplayNum( DISPLAY_DIG3 - stateCount, match[0] );
+  //     writeDisplayNum( DISPLAY_DIG4 - stateCount, 0 );
+  //     writeDisplay(    DISPLAY_DIG5 - stateCount, DISP_BLANK );
+  //     if ( stateCount++>2 ) {
+  //       state = 2;
+  //     }
+  //     setTimer(MATCH_TMR, FIVE_HUNDRETH_SECONDS, state);
+  //     break;
+    // case 5:
+    //   match end
+    //   if ( match[0] == match[6] ) {
+    //     hitSolenoid( SOLENOID_KNOCKER );
+    //     increaseCredits( nonVolatiles.coinsPerGame, FALSE );
+    //     nonVolatiles.freeGameMatch++;
+    //     setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FREE);
+    //   } else {
         setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_SCORE);
-      } 
+      // } 
       setTimer(ATTRACT_LAMP_TMR, ONE_SECOND, 0);
       cancelBoxTimer();
-      break;
-  }
+  //     break;
+  // }
 }
 
 
@@ -658,17 +655,16 @@ void gameTimer(timerEvent id, uint16_t state)
   case GAME_BALL_LOAD:
     ballIsLoading = TRUE;
     hitSolenoid( SOLENOID_BALL_LOADER );
-    displayString( DISP_BLANK, DISP_B, DISP_A, DISP_L, DISP_L, DISP_BLANK, DISP_BLANK, DISP_BLANK );
-    writeDisplayNum( DISPLAY_DIG7, ballInPlay );
+    displayText( "ball %d", ballInPlay );
     setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
     break;    
   case GAME_BALL_AGAIN:
     hitSolenoid( SOLENOID_BALL_LOADER );
-    displayString( DISP_BLANK, DISP_BLANK, DISP_S, DISP_H, DISP_O, DISP_O, DISP_T, DISP_BLANK );
+    displayText( "shoot" );
     setTimer(GAME_TMR, ONE_SECOND, GAME_BALL_AGAIN_1);
     break;
   case GAME_BALL_AGAIN_1:
-    displayString( DISP_BLANK, DISP_BLANK, DISP_A, DISP_G, DISP_A, DISP_I, DISP_N, DISP_BLANK );
+    displayText( "again" );
     setTimer(GAME_TMR, ONE_SECOND, GAME_SCORE);
     break;
   case GAME_SCORE:
@@ -679,7 +675,7 @@ void gameTimer(timerEvent id, uint16_t state)
     break;
   case GAME_FREE_CREDIT:
     scoreDisplayDisabled = TRUE;
-    displayString( DISP_F, DISP_R, DISP_E, DISP_E, DISP_G, DISP_A, DISP_M, DISP_E );
+    displayText( "freegame" );
     setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
     break;
   case GAME_TILT:
@@ -692,7 +688,7 @@ void gameTimer(timerEvent id, uint16_t state)
     setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
     playSound( SOUND_GAME_TILT );
     flipperEnableSolenoids( false );
-    displayString( DISP_BLANK, DISP_BLANK, DISP_T, DISP_I, DISP_L, DISP_T, DISP_BLANK, DISP_BLANK );
+    displayText( "tilt" );
     setTimer(GAME_TMR, THREE_SECONDS, GAME_SCORE);
     break;
   default:
@@ -843,8 +839,6 @@ void nextBall(void)
     setLampMode(LAMP_BONUS_1 + multiplier, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
   }
 
-  resetDisplay(); // just in case
-  
   if (ballInPlay++ < nonVolatiles.ballsPerGame) {
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
   } else {
@@ -860,7 +854,7 @@ void gameOver(void)
   if ( highScoreExceeded ) {
     nonVolatiles.freeGameHighScore++;
     increaseCredits( nonVolatiles.coinsPerGame, FALSE );
-    memcpy( nonVolatiles.highScore, score, sizeof(score) );
+    nonVolatiles.highScore = score;
     saveNonVolatiles();
   }
 //  setTimer(MATCH_TMR, ONE_HUNDRETH_SECOND, 0);
@@ -870,17 +864,6 @@ void gameOver(void)
 //////////////////////////////////
 // credits
 //////////////////////////////////
-void displayCredits(void)
-{
-  displayString( DISP_BLANK, DISP_BLANK, DISP_BLANK, DISP_BLANK, DISP_O, DISP_F, DISP_BLANK, DISP_BLANK);
-
-  uint8_t high = (credits%100)/10;
-  uint8_t low = credits%10;
-  if ( high > 0 ) writeDisplayNum( DISPLAY_DIG1, high );
-  writeDisplayNum( DISPLAY_DIG2, low );
-  writeDisplayNum( DISPLAY_DIG7, nonVolatiles.coinsPerGame );
-}
-
 void increaseCredits(uint8_t value, boolean coinMode)
 {
   credits += value;
@@ -907,13 +890,6 @@ boolean decreaseCredits(void)
 // scoring and non volatiles
 //////////////////////////////////
 
-// "BCD-style" used for scoring in order to avoid divides and modulus when updating display
-const uint8_t SCORE_TEN[8]  = { 0, 0, 0, 0, 0, 0, 1, 0 };
-const uint8_t SCORE_ONE_HUNDRED[8]  = { 0, 0, 0, 0, 0, 1, 0, 0 };
-const uint8_t SCORE_FIVE_HUNDRED[8]  = { 0, 0, 0, 0, 0, 5, 0, 0 };
-const uint8_t SCORE_ONE_THOUSAND[8]  = { 0, 0, 0, 0, 1, 0, 0, 0 };
-const uint8_t SCORE_FIVE_THOUSAND[8]  = { 0, 0, 0, 0, 5, 0, 0, 0 };
-
 static uint8_t checkCalc( uint8_t sum, uint8_t *data, uint8_t size )
 {
   uint8_t i;
@@ -926,7 +902,7 @@ static uint8_t checkCalc( uint8_t sum, uint8_t *data, uint8_t size )
 void resetNonVolatiles(void)
 {
   nonVolatiles_t nv = {
-    .highScore = {0,0,0,5,0,0,0,0},
+    .highScore = 50000,
     .headOpen = 20,
     .headClose = 25,
     .quiteMode = 1,
@@ -962,51 +938,31 @@ void saveNonVolatiles(void)
 
 void displayScore(void)
 {
-  displayBCD( score, sizeof(score) );
+  // right justify, %6s isn't supported
+  char s[12] = {0,};
+  sprintf(s,"%ld", score);
+//  for (int i=0;i<strlen(s);i++){ if (s[i]=='0') s[i]=' '; else break; }
+  // printf("%s\n",s);
+  displayText("%6s", s);
 }
 
 void resetScore(void)
 {
-  uint8_t i;
-  for(i = 0; i< 8; i++) {
-    score[i] = 0;
-  }
+  score = 0;
   displayScore();
 }
 
 uint32_t getScore(void)
 {
-  uint32_t temp = 0;
-  uint8_t i=7;
-
-  do {
-    temp = temp * 10 + score[i];
-  } while(i--);
-
-  return temp;
+  return score;
 }
 
-void increaseScore(const uint8_t *bcdVal)
+void increaseScore(uint16_t value)
 {
-  uint8_t i,j;
-  uint8_t temp, carry=0;
+  score += value * multiplier;
 
   if ( (crazyMode) || (nonVolatiles.quiteMode == 0) ) {
     hitSolenoid( SOLENOID_BELL );
-  }
-
-  for(j=0; j<multiplier; j++) {
-    i=7;
-    do {
-      temp = score[i] + bcdVal[i] + carry;
-      if(temp >= 10) {
-        carry = 1;
-        score[i] = temp - 10;
-      } else {
-        carry = 0;
-        score[i] = temp;
-      }
-    } while( i-- );
   }
 
   if ( !scoreDisplayDisabled ) {
@@ -1015,19 +971,11 @@ void increaseScore(const uint8_t *bcdVal)
   
   if ( !highScoreExceeded )
   {
-    for(i=0; i<8; i++)
+    if ( score > nonVolatiles.highScore )
     {
-      if ( score[i] > nonVolatiles.highScore[i] )
-      {
-        highScoreExceeded = TRUE;
-        setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
-        hitSolenoid( SOLENOID_KNOCKER );
-        break;
-      }
-      if ( score[i] < nonVolatiles.highScore[i] )
-      {
-        break;
-      }
+      highScoreExceeded = TRUE;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
+      hitSolenoid( SOLENOID_KNOCKER );
     }
   }
 }
@@ -1148,58 +1096,41 @@ void configMode(slowSwitch sw)
 
   switch(mode) {
     case modeHeadOpen:
-      displayString(DISP_H,DISP_D,DISP_O,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
       bearSetPulse( nonVolatiles.headOpen );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
-      displayLong( nonVolatiles.headOpen, 4 );
+      displayText("hdo %04d", nonVolatiles.headOpen );
       break;
     case modeHeadClose:
-      displayString(DISP_H,DISP_D,DISP_C,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
       bearSetPulse( nonVolatiles.headClose );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
-      displayLong( nonVolatiles.headClose, 4 );
+      displayText("hdc %04d", nonVolatiles.headClose );
       break;
     case modeQuiet:
-      displayString(DISP_Q,DISP_U,DISP_I,DISP_E,DISP_T,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.quiteMode );
+      displayText("quiet %d", nonVolatiles.quiteMode );
       break;
     case modeTiltSensitivity:
-      displayString(DISP_T,DISP_I,DISP_L,DISP_T,DISP_Y,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG6, (nonVolatiles.tiltSensitivity%100)/10 );
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.tiltSensitivity%10 );
+      displayText("tilty %d", nonVolatiles.tiltSensitivity );
       break;
     case modeBalls:
-      displayString(DISP_B,DISP_A,DISP_L,DISP_L,DISP_S,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.ballsPerGame );
+      displayText("balls %d", nonVolatiles.ballsPerGame );
       break;
     case modeSound:
-      displayString(DISP_S,DISP_O,DISP_U,DISP_N,DISP_D,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.soundBoard );
+      displayText("sound %d", nonVolatiles.soundBoard );
       break;
     case modeCoins:
-      displayString(DISP_C,DISP_O,DISP_I,DISP_N,DISP_S,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.coinsPerGame );
+      displayText("coins %d", nonVolatiles.coinsPerGame );
       break;
     case modeStats_1:
-      displayString(DISP_P,DISP_L,DISP_A,DISP_Y,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG5, (nonVolatiles.gamesPlayed%1000)/100 );
-      writeDisplayNum( DISPLAY_DIG6, (nonVolatiles.gamesPlayed%100)/10 );
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.gamesPlayed%10 );
+      displayText("plays %d", nonVolatiles.gamesPlayed );
       break;
     case modeStats_2:
-      displayString(DISP_F,DISP_G,DISP_H,DISP_S,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG5, (nonVolatiles.freeGameHighScore%1000)/100 );
-      writeDisplayNum( DISPLAY_DIG6, (nonVolatiles.freeGameHighScore%100)/10 );
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.freeGameHighScore%10 );
+      displayText("fghs %d", nonVolatiles.freeGameHighScore );
       break;
     case modeStats_3:
-      displayString(DISP_F,DISP_G,DISP_M,DISP_A,DISP_BLANK,DISP_BLANK,DISP_BLANK,DISP_BLANK);
-      writeDisplayNum( DISPLAY_DIG5, (nonVolatiles.freeGameMatch%1000)/100 );
-      writeDisplayNum( DISPLAY_DIG6, (nonVolatiles.freeGameMatch%100)/10 );
-      writeDisplayNum( DISPLAY_DIG7, nonVolatiles.freeGameMatch%10 );
+      displayText("fgma %d", nonVolatiles.freeGameMatch );
       break;
     case modeReset:
-      displayString(DISP_R,DISP_E,DISP_S,DISP_E,DISP_T,DISP_BLANK,DISP_BLANK,DISP_BLANK);
+      displayText("reset");
       break;
     default:
       break;

@@ -3,7 +3,7 @@ PRJ = tweenpin
 MCU = atmega1284
 CLK = 16000000
 
-SRC = $(PRJ).c display.c fastswitch.c io.c uart.c timers.c sound.c lamp.c slowswitch.c solenoid.c timer.c
+SRC = $(PRJ).c display.c ht16k33.c fastswitch.c io.c uart.c timers.c sound.c lamp.c slowswitch.c solenoid.c timer.c
 
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
 CFLAGS   = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE) -gdwarf-2 -std=gnu99 -funsigned-char -funsigned-bitfields

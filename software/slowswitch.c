@@ -72,25 +72,25 @@ static const slowSwitchTrig slowSwitchFunctions[SWITCH_QTY] = {
 
 void testSwitch(void)
 {
-  uint8_t scan[IO_INPUT_CHIP_COUNT];
-  uint8_t i;
-
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
-    {
-//      scan[i] = readIO( i, IO_INTF );
-    scan[i] = readIO( i, IO_GPIO );
-//      scan[i] = readIO( i, IO_DIR );
-//      scan[i] = readIO( i, IO_GPPU );
-//      scan[i] = readIO( i, IO_IPOL );
-  }
-    writeDisplay( DISPLAY_DIG0, DISP_S);
-    writeDisplay( DISPLAY_DIG1, DISP_BLANK);
-    writeDisplayNum( DISPLAY_DIG2, scan[2] >> 4);
-    writeDisplayNum( DISPLAY_DIG3, scan[2] & 0x0F);
-    writeDisplayNum( DISPLAY_DIG4, scan[1] >> 4);
-    writeDisplayNum( DISPLAY_DIG5, scan[1] & 0x0F);
-    writeDisplayNum( DISPLAY_DIG6, scan[0] >> 4);
-    writeDisplayNum( DISPLAY_DIG7, scan[0] & 0x0F);
+//   uint8_t scan[IO_INPUT_CHIP_COUNT];
+//   uint8_t i;
+// 
+//   for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ )
+//     {
+// //      scan[i] = readIO( i, IO_INTF );
+//     scan[i] = readIO( i, IO_GPIO );
+// //      scan[i] = readIO( i, IO_DIR );
+// //      scan[i] = readIO( i, IO_GPPU );
+// //      scan[i] = readIO( i, IO_IPOL );
+//   }
+//     writeDisplay( DISPLAY_DIG0, DISP_S);
+//     writeDisplay( DISPLAY_DIG1, DISP_BLANK);
+//     writeDisplayNum( DISPLAY_DIG2, scan[2] >> 4);
+//     writeDisplayNum( DISPLAY_DIG3, scan[2] & 0x0F);
+//     writeDisplayNum( DISPLAY_DIG4, scan[1] >> 4);
+//     writeDisplayNum( DISPLAY_DIG5, scan[1] & 0x0F);
+//     writeDisplayNum( DISPLAY_DIG6, scan[0] >> 4);
+//     writeDisplayNum( DISPLAY_DIG7, scan[0] & 0x0F);
 }
 
 

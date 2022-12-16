@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <ctype.h> 
 #include <assert.h>
+#include <string.h>
+#include <stdarg.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
@@ -91,9 +93,10 @@ typedef bool    boolean;
 #define SOLENOID_MASK       0xFF
 #define SOLENOID_QTY        8
 
-#define DISPLAY_PORT        PORTB
-#define DISPLAY_DDR         DDRB
-#define DISPLAY_CS          BIT(1)
+#define DISPLAY_PORT        PORTC
+#define DISPLAY_DDR         DDRC
+#define DISPLAY_SCL         BIT(0)
+#define DISPLAY_SCA         BIT(1)
 
 #define IO_CONTROL_PORT     PORTB
 #define IO_CONTROL_DDR      DDRB
@@ -133,30 +136,6 @@ typedef bool    boolean;
 #define IO_INTCAP          0x8
 #define IO_GPIO            0x9
 #define IO_OLAT            0xA
-
-// display
-#define DISPLAY_NOOP      0x0
-#define DISPLAY_DIG0      0x1
-#define DISPLAY_DIG1      0x2
-#define DISPLAY_DIG2      0x3
-#define DISPLAY_DIG3      0x4
-#define DISPLAY_DIG4      0x5
-#define DISPLAY_DIG5      0x6
-#define DISPLAY_DIG6      0x7
-#define DISPLAY_DIG7      0x8
-#define DISPLAY_MODE      0x9
-#define DISPLAY_INTENSITY 0xA
-#define DISPLAY_SCAN      0xB
-#define DISPLAY_SHUTDOWN  0xC
-#define DISPLAY_TEST      0xF
-
-#define DISPLAY_FONT_DASH   10
-#define DISPLAY_FONT_E      11
-#define DISPLAY_FONT_H      12
-#define DISPLAY_FONT_L      13
-#define DISPLAY_FONT_P      14
-#define DISPLAY_FONT_BLANK  15
-
 
 typedef enum
 {
@@ -355,73 +334,16 @@ void driveLampISR(void);
 // display
 //////////////////////////////////
 
-//  -    a
-// | |  f b 
-//  -    g
-// | |  e c
-//  - .  d  
-//
-// bits
-// 7 6 5 4 3 2 1 0
-// p a b c d e f g
-
-typedef enum {
-  DISP_BLANK = 0x00,
-  DISP_ZERO = 0x7E,
-  DISP_ONE = 0x30,
-  DISP_TWO = 0x6d,
-  DISP_THREE = 0x79,
-  DISP_FOUR = 0x33,
-  DISP_FIVE = 0x5b,
-  DISP_SIX = 0x5f,
-  DISP_SEVEN = 0x70,
-  DISP_EIGHT = 0x7f,
-  DISP_NINE = 0x7b,
-  DISP_A = 0x77,
-  DISP_B = 0x1f,
-  DISP_C = 0x4e,
-  DISP_D = 0x3d,
-  DISP_E = 0x4f,
-  DISP_F = 0x47,
-  DISP_G = 0x5e,
-  DISP_H = 0x37,
-  DISP_I = 0x30,
-  DISP_J = 0x3c,
-  DISP_K = 0x37,  //better representation possible??
-  DISP_L = 0x0e,
-  DISP_M = 0x15, //better representation possible??
-  DISP_M2 = 0x11,
-  DISP_N = 0x15,
-  DISP_O = 0x7e,
-  DISP_P = 0x67,
-  DISP_Q = 0xfe, //better representation possible??
-  DISP_R = 0x05,
-  DISP_S = 0x5b,
-  DISP_T = 0x70, //better representation possible??
-  DISP_U = 0x1c,  // short
-  DISP_U2 = 0x3e, // tall
-  DISP_V = 0x3e, //better representation possible??
-  DISP_W = 0x1c, //better representation possible??
-  DISP_W2 = 0x18,
-  DISP_X = 0x37,  //better representation possible??
-  DISP_Y = 0x3b,
-  DISP_Z = 0x6d,  //better representation possible??
-  DISP_DASH = 0x01,
-  DISP_BARS = 0x49
-} displayChars;
-
-void displayBCD(uint8_t *bcd, uint8_t size);
-void displayBinary(uint8_t value);
-void writeDisplay( uint8_t reg, uint8_t data );
-void writeDisplayNum( uint8_t reg, uint8_t data );
+#define LED_BACKPACKS   5
+#define LED_COLUMNS     8
+#define LED_ROWS        8
+void ht16k33Init(void);
+void ht16k33Clear(void);
+void ht16k33DisplayFrame(void);
+void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 void initDisplay(void);
-void resetDisplay(void);
-void displayLong(uint32_t value,uint8_t digits);
-void displayText(const uint8_t* str);
-void displayString(uint8_t dig0, uint8_t dig1, uint8_t dig2, uint8_t dig3, 
-                   uint8_t dig4, uint8_t dig5, uint8_t dig6, uint8_t dig7);
-void displayClear(void);
-
+void clearDisplay(void);
+void displayText(const char *fmt, ...);
 
 //////////////////////////////////
 // sounds
@@ -494,10 +416,8 @@ void bearSetPulse(uint8_t pulse);
 // game play
 //////////////////////////////////
 
-typedef uint8_t score_t[8];
-
 typedef struct {
-  score_t highScore;
+  uint32_t highScore;
   uint8_t headOpen;
   uint8_t headClose;
   uint8_t quiteMode;
@@ -566,19 +486,18 @@ void nextBall(void);
 void gameOver(void);
 
 
-extern const uint8_t SCORE_TEN[8];
-extern const uint8_t SCORE_ONE_HUNDRED[8];
-extern const uint8_t SCORE_FIVE_HUNDRED[8];
-extern const uint8_t SCORE_ONE_THOUSAND[8];
-extern const uint8_t SCORE_FIVE_THOUSAND[8];
+#define SCORE_TEN             10
+#define SCORE_ONE_HUNDRED    100
+#define SCORE_FIVE_HUNDRED   500
+#define SCORE_ONE_THOUSAND  1000
+#define SCORE_FIVE_THOUSAND 5000
 
-void displayCredits(void);
 void increaseCredits(uint8_t i, boolean coinMode);
 boolean decreaseCredits(void);
 void resetCredits(void);
 
 void displayScore(void);
-void increaseScore(const uint8_t *bcdVal);
+void increaseScore(uint16_t value);
 uint32_t getScore(void);
 void resetScore(void);
 
