@@ -5,6 +5,11 @@
 
 #include "uart.h"
 
+// note: this requires 2x2w wav/ogg sound boards
+// they're triggered by two separate uart channels
+// one handles music while the other handles sound effects.
+// https://www.adafruit.com/product/2210
+
 void initSound( void )
 {
   #ifdef USART0_ENABLED
