@@ -4,9 +4,7 @@
 #define HT16K33_CMD_OSC         0b0010
 #define HT16K33_OSC_ON          1
 #define HT16K33_OSC_OFF         0
-
-#define HT16K33_CMD_BRIGHTNESS  0b0000
-
+#define HT16K33_CMD_BRIGHTNESS  0b1110
 #define HT16K33_CMD_SETUP       0b1000
 #define HT16K33_DISPLAY_ON      0b0001
 
@@ -118,6 +116,7 @@ void ht16k33Init(void)
   for (int i=0; i<LED_BACKPACKS; i++) {
     writeReg( i, HT16K33_CMD_OSC, HT16K33_OSC_ON );
     writeReg( i, HT16K33_CMD_SETUP, HT16K33_DISPLAY_ON );
+    writeReg( i, HT16K33_CMD_BRIGHTNESS, 6 );
   }
   ht16k33Clear();
 }

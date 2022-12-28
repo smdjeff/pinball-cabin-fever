@@ -32,8 +32,8 @@ uint8_t displayChar(char ch, uint8_t x0, uint8_t y0) {
   if ( font ) {
     for (int x=0; x<font->width; x++) {
         for (int y=0; y<font->height; y++) {
-            int color = font->data[ (y*font->height) + x ];
-            ht16k33DrawPixel( x0-x, y0+y, color?1:0 );
+            int color = font->data[ (y*font->width) + x ];
+            ht16k33DrawPixel( x0-x, y0+y, color );
         }
     }
     return font->width;
@@ -41,17 +41,25 @@ uint8_t displayChar(char ch, uint8_t x0, uint8_t y0) {
   return 0;
 }
 
+static uint8_t view_x = 0;
+static uint8_t view_y = 0;
+
+void displayView(uint8_t x, uint8_t y) {
+  view_x = x;
+  view_y = y;
+}
+
 static int display_putchar_printf(char ch, FILE *stream) {
-    static uint8_t x0=(LED_BACKPACKS*LED_COLUMNS);
-    static uint8_t y0=2;
-    uint8_t w = displayChar( ch, x0, y0 );
+    static uint8_t x0 = 0;
+    static uint8_t y0 = 0;
+    uint8_t w = displayChar( ch, x0-view_x, y0+view_y );
     if ( ch == '\n' ) {
       ht16k33DisplayFrame();
       x0 = (LED_BACKPACKS*LED_COLUMNS);
     } else {
       x0 -= w;
       for (int y=0; y<LED_ROWS; y++) {
-          ht16k33DrawPixel( x0, y, 0 );
+          ht16k33DrawPixel( x0-view_x, y, 0 );
       }
       x0 -= 1;
     }
@@ -72,7 +80,9 @@ void clearDisplay(void) {
 }
 
 void initDisplay(void) {
+    displayView( 0, 0 );
     ht16k33Init();
+    printf("\n");
     
     // hook stdio printf() to the led matrix
     static FILE mystdout = FDEV_SETUP_STREAM(display_putchar_printf, NULL, _FDEV_SETUP_WRITE);
