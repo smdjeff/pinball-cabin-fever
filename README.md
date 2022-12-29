@@ -9,7 +9,7 @@
 </tr></table>
 
 ## History
-* 2022 - added sound boards and dot matrix display. [YouTube Video](https://www.youtube.com/watch?v=6KhJhX8kA1E).
+* 2022 - added [sound boards](https://www.adafruit.com/product/2210) and [dot matrix display](https://www.adafruit.com/product/902). [YouTube Video](https://www.youtube.com/watch?v=6KhJhX8kA1E).
 * 2021 - shoot the blinking lights added.
 * 2020 - improved play by adding another pop bumper up top and a second symetrical slingshot.
 * 2007 - software updates and charity play at the Rocky Mountain Pinball Showdown. [Article in GameRoom Magazine](docs/GRM19-05.pdf?raw=true)
