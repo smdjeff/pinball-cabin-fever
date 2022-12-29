@@ -158,7 +158,6 @@ typedef enum
 typedef enum {
   ATTRACT_LAMP_TMR,
   ATTRACT_TMR,
-  MATCH_TMR,
   BEAR_TMR,
   GAME_TMR,
   CRAZY_TMR,
@@ -171,7 +170,6 @@ typedef enum {
 
 void attractLamps(timerEvent id, uint16_t data);
 void attractTimer(timerEvent id, uint16_t data);
-void matchTimer(timerEvent id, uint16_t data);
 void bearTimer(timerEvent id, uint16_t data);
 void gameTimer(timerEvent id, uint16_t state);
 void crazyModeTimer(timerEvent id, uint16_t state);
@@ -233,7 +231,7 @@ typedef enum
   SOLENOID_BALL_LOADER,
   SOLENOID_POP_BUMPER_LOWER,
   SOLENOID_POP_BUMPER_UPPER,
-  SOLENOID_BELL,
+  SOLENOID_WOODBLOCK,
   // SOLENOID_6,
   // SOLENOID_7
 } solenoid;
@@ -344,6 +342,7 @@ void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 void initDisplay(void);
 void clearDisplay(void);
 void displayText(const char *fmt, ...);
+void displayView(uint8_t x, uint8_t y);
 
 //////////////////////////////////
 // sounds
@@ -365,7 +364,6 @@ typedef enum {
   SOUND_GAME_END,
   SOUND_GAME_TILT,
   SOUND_COIN,
-  SOUND_MATCHING,
   SOUND_MAIN_MUSIC
 } sounds_t;
 
@@ -444,17 +442,17 @@ extern nonVolatiles_t nonVolatiles;
 typedef enum {
   BEAR_OPEN,
   BEAR_HOLD_OPEN,
-  BEAR_CHEW_CLOSE,
-  BEAR_CHEW_OPEN,
+  BEAR_CHEW,
+  BEAR_CHEW_1,
   BEAR_EJECT,
   BEAR_EJECT_1,
-  BEAR_EJECT_2,
   BEAR_CLOSE,
   BEAR_HOLD_CLOSE,
   BEAR_TEST
 } bearStates;
 
 typedef enum {
+  GAME_BALL_WAIT,
   GAME_BALL_LOAD,
   GAME_BALL_AGAIN,
   GAME_BALL_AGAIN_1,
@@ -496,7 +494,7 @@ void increaseCredits(uint8_t i, boolean coinMode);
 boolean decreaseCredits(void);
 void resetCredits(void);
 
-void displayScore(void);
+void displayScore(uint8_t color);
 void increaseScore(uint16_t value);
 uint32_t getScore(void);
 void resetScore(void);
@@ -510,7 +508,6 @@ void setMultiplier(uint8_t mult);
 void configMode(slowSwitch sw);
 void cancelBoxTimer(void);
 void attractTimerButton( fastSwitch theSwitch );
-void matchTimerButton( fastSwitch theSwitch );
 
 
 #endif //__TWEENPIN_H__

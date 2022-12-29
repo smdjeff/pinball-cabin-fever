@@ -163,8 +163,6 @@ void targetBearTrig(slowSwitch theSwitch, boolean active)
   increaseScore(SCORE_ONE_THOUSAND);
   setTimer(BEAR_TMR, ONE_HUNDRETH_SECOND, BEAR_OPEN);
   setTimer(BOX_TMR, QUARTER_SECOND, 0);
-  setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
-  setLampMode( LAMP_BEAR_MOUTH, LAMP_ON_STATE, 0, INFINITE );
 }
 
 void targetLogjamTrig(slowSwitch theSwitch, boolean active)
@@ -200,12 +198,12 @@ void targetLogjamTrig(slowSwitch theSwitch, boolean active)
     multiplier++;
     setLampMode(LAMP_BONUS_1 + multiplier - 1, LAMP_ON_STATE, INFINITE, 1);
     setLampMode(LAMP_BONUS_1 + multiplier, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE); // shoot the blinking light
-    hitSolenoid( SOLENOID_BELL );
+    hitSolenoid( SOLENOID_WOODBLOCK );
   } else {
     if ( !crazyMode ) {
       crazyMode = TRUE;
       setTimer(CRAZY_TMR, ONE_HUNDRETH_SECOND, 0);
-      hitSolenoid( SOLENOID_BELL );
+      hitSolenoid( SOLENOID_WOODBLOCK );
     }
   }
 
@@ -242,25 +240,9 @@ void bearCaptureTrig(slowSwitch theSwitch, boolean active)
 {
   if(!gameOn) return;
   
-  // debounce (blinking means, we're trying to eject
-  if ( (getLampMode(LAMP_BEAR_MOUTH)!=LAMP_OFF_STATE) &&
-       (getLampMode(LAMP_BEAR_MOUTH)!=LAMP_ON_STATE) ) {
-    
-    // eject retry? maybe we need more opening
-    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
-  } else {
-    
-    if ( getLampMode(LAMP_BEAR_ARROW) == LAMP_OFF_STATE ) {
-      // reject shots into bear if the bear isn't actually open.
-    // having trouble with the head not being closed?
-    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_EJECT);
-  } else {
-    increaseScore(SCORE_FIVE_THOUSAND);
-    playSound( SOUND_BEAR_CHEW );
-    setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW_CLOSE);
-  }
-    
-  }
+  increaseScore(SCORE_FIVE_THOUSAND);
+  playSound( SOUND_BEAR_CHEW );
+  setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW);
 }
 
 void coinTrig(slowSwitch theSwitch, boolean active)
@@ -294,7 +276,6 @@ void drainTrig(slowSwitch theSwitch, boolean active)
       if( (getScore()==0) && (ballInPlay==1) && (!tilt) ) {
         setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_AGAIN);
       } else {
-        playSound( SOUND_DRAIN );
         nextBall();
       }
     }

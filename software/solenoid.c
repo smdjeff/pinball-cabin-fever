@@ -13,14 +13,12 @@ static void setSolenoid( solenoid sol, boolean on )
 {
   uint8_t bit = 0;
   switch ( sol ) {
-    case SOLENOID_BELL:
+    case SOLENOID_WOODBLOCK:
       if ( nonVolatiles.quiteMode == 2 ) return;
-      if ( on && isSolenoidOn(SOLENOID_KNOCKER) ) return; // prevent brownout
       bit = BIT(0); 
       break;
     case SOLENOID_KNOCKER:
       if ( nonVolatiles.quiteMode == 2 ) return;
-      if ( on && isSolenoidOn(SOLENOID_BELL) ) return; // prevent brownout
       bit = BIT(1); 
       break;
     case SOLENOID_BALL_LOADER:

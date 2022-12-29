@@ -22,13 +22,13 @@ void driveFastSwitches(void) {
   uint16_t time = getSysTime();
   
   uint8_t pop = ~read( FASTSWITCH_BUMPER_PIN, FASTSWITCH_BUMPER_MASK );
+  if ( !gameOn ) pop = 0;
 
   if ( pop & FASTSWITCH_POP_BUMPER_UPPER ) {
     if( !isSolenoidOn(SOLENOID_POP_BUMPER_UPPER) ) {
       increaseScore(SCORE_ONE_HUNDRED);
       hitSolenoid( SOLENOID_POP_BUMPER_UPPER );
       setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
-      hitSolenoid( SOLENOID_BELL );
     }
   }
   if ( pop & FASTSWITCH_POP_BUMPER_LOWER ) {
@@ -36,11 +36,15 @@ void driveFastSwitches(void) {
       increaseScore(SCORE_ONE_HUNDRED);
       hitSolenoid( SOLENOID_POP_BUMPER_LOWER );
       setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
-      hitSolenoid( SOLENOID_BELL );
     }
   }
 
   uint8_t flip = ~read( FASTSWITCH_FLIPPER_PIN, FASTSWITCH_FLIPPER_MASK );
+  if ( !gameOn ) flip = 0;
+  if ( crazyMode ) {
+    flip = ((flip&FASTSWITCH_FLIPPER_LEFT)?FASTSWITCH_FLIPPER_RIGHT:0) | 
+           ((flip&FASTSWITCH_FLIPPER_RIGHT)?FASTSWITCH_FLIPPER_LEFT:0) ;
+  }
 
   switch ( flipperGetPulseRight() ) {
     case off:

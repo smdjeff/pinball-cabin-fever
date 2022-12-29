@@ -36,13 +36,13 @@ void playEffect( const char *progmem_s )
 void playMusic( const char *progmem_s ) 
 {
   if (!gameOn) return;
-  // #ifdef USART1_ENABLED  
-  //   char s[] = "P        OGG\n";
-  //   strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
-  //   uart1_puts_P( "q\n" );
-  //   __delay_ms(100);
-  //   uart1_puts( s );
-  // #endif
+  #ifdef USART1_ENABLED  
+    char s[] = "P        OGG\n";
+    strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
+    uart1_puts_P( "q\n" );
+    __delay_ms(100);
+    uart1_puts( s );
+  #endif
 }
 
 void stopMusic( void )
@@ -55,7 +55,7 @@ void stopMusic( void )
   
 void playSound( sounds_t sound )
 {
-  // if ( gameOn && !tilt ) return;
+  // if ( !gameOn && !tilt ) return;
   // if ( !nonVolatiles.soundBoard ) return;
 
   switch ( sound ) {
@@ -80,7 +80,6 @@ void playSound( sounds_t sound )
     case SOUND_BEAR_CHEW:
       break;
     case SOUND_LOGS:
-    case SOUND_MATCHING:
       switch ( rand() % 3 ) {
         case 0: playEffect( PSTR("LOG0") ); break;
         case 1: playEffect( PSTR("LOG1") ); break;
@@ -91,7 +90,6 @@ void playSound( sounds_t sound )
       playEffect( PSTR("START") );
       break;
     case SOUND_DRAIN:
-      stopMusic();
       switch ( rand() % 2 ) {
         case 0: playEffect( PSTR("DRAIN0") ); break;
         case 1: playEffect( PSTR("DRAIN1") ); break;

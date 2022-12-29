@@ -114,7 +114,6 @@ void driveTimers(void)
         switch( i ) {
           case ATTRACT_LAMP_TMR: cb=attractLamps; break;
           case ATTRACT_TMR:      cb=attractTimer; break;
-          case MATCH_TMR:        cb=matchTimer; break;
           case BEAR_TMR:         cb=bearTimer; break;
           case GAME_TMR:         cb=gameTimer; break;
           case CRAZY_TMR:        cb=crazyModeTimer; break;

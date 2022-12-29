@@ -56,7 +56,7 @@ void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color)
       column_red[ x ] &= ~_BV(y);
       column_green[ x ] &= ~_BV(y);
       break;
-    case 3:
+    case 1:
       column_red[ x ] |= _BV(y);
       column_green[ x ] &= ~_BV(y);
       break;
@@ -64,7 +64,7 @@ void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color)
       column_red[ x ] &= ~_BV(y);
       column_green[ x ] |= _BV(y);
       break;
-    case 1:
+    case 3:
       column_red[ x ] |= _BV(y);
       column_green[ x ] |= _BV(y);
       break;
@@ -92,6 +92,8 @@ void ht16k33Clear(void)
   }
 }
 
+uint8_t invertDisplayColors = 0;
+
 void ht16k33DisplayFrame(void)
 {
   for (uint8_t addr=0; addr<LED_BACKPACKS; addr++) {
@@ -99,7 +101,7 @@ void ht16k33DisplayFrame(void)
     i2cWrite( (0x70|(addr&0x07)) << 1 );
     i2cWrite( 0x00 ); // start at address $00 (right most column 0)
     for (int i=0; i<LED_COLUMNS; i++) { // all columns, right to left
-      i2cWrite( column_green[ (addr*LED_ROWS)+i ] );
+      i2cWrite( invertDisplayColors ^ column_green[ (addr*LED_ROWS)+i ] );
       i2cWrite( column_red[ (addr*LED_ROWS)+i ] );
     }
     i2cStop();
