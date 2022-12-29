@@ -1,5 +1,8 @@
 #include "tweenpin.h"
 
+// note: this requires 5 8x8 bi-color displays 
+// each has a separate i2c address.
+// https://www.adafruit.com/product/902
 
 typedef struct __attribute__((packed)) {
   uint8_t ascii;
