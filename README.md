@@ -8,6 +8,12 @@
   <td style=center><a href="docs/GRM19-05.pdf?raw=true"><img src="docs/cover.jpg" width="25%"></a></td>
 </tr></table>
 
+## History
+* 2022 - added sound boards and dot matrix display.
+* 2021 - shoot the blinking lights added.
+* 2020 - improved play by adding another pop bumper up top and a second symetrical slingshot.
+* 2007 - software updates and charity play at the Rocky Mountain Pinball Showdown.
+* 2006 - created, custom woodworking, metal, electronics, and seminar hosted at Pinball Expo Chicago.
 
 ## Overview
 
