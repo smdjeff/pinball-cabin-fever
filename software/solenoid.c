@@ -14,11 +14,11 @@ static void setSolenoid( solenoid sol, boolean on )
   uint8_t bit = 0;
   switch ( sol ) {
     case SOLENOID_WOODBLOCK:
-      if ( nonVolatiles.quiteMode == 2 ) return;
+      if ( nonVolatiles.volume < 2 ) return;
       bit = BIT(0); 
       break;
     case SOLENOID_KNOCKER:
-      if ( nonVolatiles.quiteMode == 2 ) return;
+      if ( nonVolatiles.volume < 2 ) return;
       bit = BIT(1); 
       break;
     case SOLENOID_BALL_LOADER:

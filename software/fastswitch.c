@@ -28,6 +28,7 @@ void driveFastSwitches(void) {
     if( !isSolenoidOn(SOLENOID_POP_BUMPER_UPPER) ) {
       increaseScore(SCORE_ONE_HUNDRED);
       hitSolenoid( SOLENOID_POP_BUMPER_UPPER );
+      playSound( SOUND_LIZZARD );
       setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
     }
   }
@@ -35,6 +36,7 @@ void driveFastSwitches(void) {
     if( !isSolenoidOn(SOLENOID_POP_BUMPER_LOWER) ) {
       increaseScore(SCORE_ONE_HUNDRED);
       hitSolenoid( SOLENOID_POP_BUMPER_LOWER );
+      playSound( SOUND_SNAKE );
       setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
     }
   }
@@ -52,6 +54,7 @@ void driveFastSwitches(void) {
         if ( time - flipperRightTimer > QUARTER_SECOND ) {
           flipperRightTimer = time;
           flipperSetPulseRight( hit );
+          laneToggle();
         }
       }
       break;
@@ -73,6 +76,7 @@ void driveFastSwitches(void) {
         if ( time - flipperLeftTimer > QUARTER_SECOND ) {
           flipperLeftTimer = time;
           flipperSetPulseLeft( hit );
+          laneToggle();
         }
       }
       break;
