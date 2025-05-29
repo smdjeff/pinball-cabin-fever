@@ -19,54 +19,75 @@ const uint8_t switchBit[] = {
   18, // SWITCH_COIN
   19, // SWITCH_TILT_BOB
   0,  // SWITCH_SPINNER
-  6,  // SWITCH_LANE_LEFT
-  1,  // SWITCH_LANE_RIGHT
+  1,  // SWITCH_LANE_LEFT
+  6,  // SWITCH_LANE_RIGHT
   23, // SWITCH_TEST_ENTER
   21, // SWITCH_TEST_PLUS
   22, // SWITCH_TEST_MINUS
   17, // SWITCH_TEST_ESCAPE
 };
 
-typedef void (*slowSwitchTrig)(slowSwitch, boolean);
+typedef struct {
+  uint16_t points;
+  sounds_t sound;
+} switchReturn_t;
 
-void targetBearTrig(slowSwitch theSwitch, boolean active);
-void targetLogjamTrig(slowSwitch theSwitch, boolean active);
-void targetSnakeTrig(slowSwitch theSwitch, boolean active);
-void bearCaptureTrig(slowSwitch theSwitch, boolean active);
-void drainTrig(slowSwitch theSwitch, boolean active);
-void coinTrig(slowSwitch theSwitch, boolean active);
-void startTrig(slowSwitch theSwitch, boolean active);
-void tiltTrig(slowSwitch theSwitch, boolean active);
-void spinnerTrig(slowSwitch theSwitch, boolean active);
-void laneTrig(slowSwitch theSwitch, boolean active);
-void testTrig(slowSwitch theSwitch, boolean active);
+typedef switchReturn_t (*callback_t)(slowSwitch, boolean);
 
-// must match slowswitch enum order
-static const slowSwitchTrig slowSwitchFunctions[SWITCH_QTY] = {
-  targetBearTrig,
-  targetBearTrig,
-  targetBearTrig,
-  targetBearTrig,
-  targetLogjamTrig,
-  targetLogjamTrig,
-  targetLogjamTrig,
-  targetLogjamTrig,
-  targetLogjamTrig,
-  targetLogjamTrig,
-  targetSnakeTrig,
-  targetSnakeTrig,
-  bearCaptureTrig,
-  drainTrig,
-  startTrig,
-  coinTrig,
-  tiltTrig,
-  spinnerTrig,
-  laneTrig,
-  laneTrig,
-  testTrig,
-  testTrig,
-  testTrig,
-  testTrig
+typedef struct {
+  callback_t callback;
+  uint16_t debounce;
+  bool enabledInAttract;
+  bool enabledInTilt;
+} switchConfig_t;
+
+
+typedef struct {
+  bool flag;
+  uint16_t lastDebounce;
+} switchStatus_t;
+
+static switchStatus_t switchStatus[SWITCH_QTY] = {0,};
+
+switchReturn_t targetBearTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t targetLogjamTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t targetSnakeTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t drainTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t coinTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t startTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t tiltTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t spinnerTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t laneTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t doorTrig(slowSwitch theSwitch, boolean active);
+
+
+
+static const switchConfig_t switchConfigs[] = {
+  { targetBearTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetBearTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetBearTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetBearTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetLogjamTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetSnakeTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { targetSnakeTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { bearCaptureTrig, QUARTER_SECOND, false, true },
+  { drainTrig, QUARTER_SECOND, false, true },
+  { startTrig, QUARTER_SECOND, true, false },
+  { coinTrig, QUARTER_SECOND, true, true },
+  { tiltTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { spinnerTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { doorTrig, QUARTER_SECOND, true, true },
+  { doorTrig, QUARTER_SECOND, true, true },
+  { doorTrig, QUARTER_SECOND, true, true },
+  { doorTrig, QUARTER_SECOND, true, true },
 };
 
 
@@ -94,28 +115,25 @@ void testSwitch(void)
 }
 
 
-static uint8_t lastScan[IO_INPUT_CHIP_COUNT];
-static boolean switchFlags[SWITCH_QTY];
-
 static void scanSwitches(void)
 {
-  uint8_t scan[IO_INPUT_CHIP_COUNT];
-  uint8_t switchchip, switchmask;
-  boolean doCheck = FALSE;
-  uint8_t i;
+  static uint8_t lastScan[IO_INPUT_CHIP_COUNT] = {0,};
+  uint8_t scan[IO_INPUT_CHIP_COUNT] = {0,};
+  uint8_t switchchip, switchmask = 0;
+  bool doCheck = false;
 
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
+  for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
     scan[i] = readIO( i, IO_GPIO );
-    if(scan[i]) { doCheck = TRUE; }
+    if(scan[i]) { doCheck = true; }
   }
-  for ( i = 0; doCheck && i < SWITCH_QTY ; i++ ) {
+  for ( uint8_t i = 0; doCheck && i < SWITCH_QTY ; i++ ) {
     switchchip = switchBit[i] >> 3;
     switchmask = BIT(switchBit[i] & 0x07);
     if( (scan[switchchip] & switchmask) && !(lastScan[switchchip] & switchmask) ) { 
-      switchFlags[i] = TRUE;
+      switchStatus[i].flag = true;
     }
   }  
-  for ( i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
+  for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
     lastScan[i] = scan[i];
   }
 }
@@ -124,69 +142,66 @@ void driveSlowSwitches(void)
 {
   scanSwitches();
   for ( uint8_t i = 0; i < SWITCH_QTY; i++ ) {
-    boolean flag;
-      flag = switchFlags[i];
-      if( flag ) {
-        switchFlags[i] = FALSE;
-      }
-    if ( flag ) {
-      slowSwitchTrig func = slowSwitchFunctions[i];
-      if ( (!tilt) || (func==drainTrig) ) {
-        func(i,TRUE);
+    switchStatus_t *s = &switchStatus[i];
+    if ( s->flag ) {
+      s->flag = false;
+      const switchConfig_t *c = &switchConfigs[i];
+      uint16_t t = getSysTime();
+      if ( t - s->lastDebounce > c->debounce ) {
+        s->lastDebounce = t;
+
+        if ( !tilt || c->enabledInTilt ) {
+          if ( gameOn || c->enabledInAttract ) {
+
+            switchReturn_t r = c->callback(i,true);
+
+            if ( r.points ) increaseScore( r.points );
+            if ( r.sound ) playSound( r.sound );
+          }
+        }
       }
     }
   }
 }
 
 
-
-void targetBearTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t targetBearTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-
-  increaseScore(SCORE_ONE_HUNDRED);
-  playSound( SOUND_BEAR_TARGETS );
-  
+  switchReturn_t ret = { SCORE_ONE_HUNDRED, SOUND_BEAR_TARGETS };
   if(getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   } else {
-    return;
+    return ret;
   }
 
+  // all lamps must be lit
   for(int i=LAMP_TARGET_1_B; i<=LAMP_TARGET_1_R; i++) {
     if(getLampMode(i) != LAMP_ON_STATE) {
-      return;
+      return ret;
     }
   }
   
-  // all lamps must be lit
-  increaseScore(SCORE_ONE_THOUSAND);
   setTimer(BEAR_TMR, ONE_HUNDRETH_SECOND, BEAR_OPEN);
   setTimer(BOX_TMR, QUARTER_SECOND, 0);
+  hitSolenoid( SOLENOID_WOODBLOCK );
+  return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
 }
 
-void targetLogjamTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t targetLogjamTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-
-  increaseScore(SCORE_ONE_HUNDRED);
-  playSound( SOUND_LOGS );
-
+  switchReturn_t ret = { SCORE_ONE_HUNDRED, SOUND_LOGS };
   if(getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   } else {
-    return;
-  }
-
-  for(int i=LAMP_TARGET_2_L; i<=LAMP_TARGET_2_M; i++) {
-    if(getLampMode(i) != LAMP_ON_STATE) {
-      return;
-    }
+    return ret;
   }
 
   // all lamps must be lit
-  increaseScore(SCORE_ONE_THOUSAND);
-  playSound( SOUND_BONUS );
+  for(int i=LAMP_TARGET_2_L; i<=LAMP_TARGET_2_M; i++) {
+    if(getLampMode(i) != LAMP_ON_STATE) {
+      return ret;
+    }
+  }
   
   // shoot the blinking light
   for(int i=LAMP_TARGET_2_L; i<=LAMP_TARGET_2_M; i++) {
@@ -207,51 +222,42 @@ void targetLogjamTrig(slowSwitch theSwitch, boolean active)
     }
   }
 
+  return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
 }
 
 // upper and lower snake switch
-void targetSnakeTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t targetSnakeTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-  
-  increaseScore(SCORE_ONE_HUNDRED);
- 
-  playSound( SOUND_SNAKE );
- 
+  switchReturn_t ret = { SCORE_ONE_HUNDRED, SOUND_SNAKE };
   if (getLampMode(theSwitch) != LAMP_ON_STATE) {
     setLampMode(theSwitch, LAMP_ON_STATE, INFINITE, 1);
   }
 
-  if( getLampMode(LAMP_TARGET_LOWER) != LAMP_ON_STATE ) {
-    return;
-  }
-  if( getLampMode(LAMP_TARGET_UPPER) != LAMP_ON_STATE ) {
-    return;
+  // all lamps must be lit
+  if( (getLampMode(LAMP_TARGET_LOWER) != LAMP_ON_STATE ) || 
+      (getLampMode(LAMP_TARGET_UPPER) != LAMP_ON_STATE ) ) {
+    return ret;
   }
 
-  // all lamps must be lit
-  increaseScore(SCORE_ONE_THOUSAND);
   setLampMode(LAMP_TARGET_LOWER, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   setLampMode(LAMP_TARGET_UPPER, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   setLampMode(LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
+  return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
 }
 
-void bearCaptureTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-  
-  increaseScore(SCORE_FIVE_THOUSAND);
-  playSound( SOUND_BEAR_CHEW );
   setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW);
+  return (switchReturn_t){ SCORE_FIVE_THOUSAND, SOUND_BEAR_CHEW };
 }
 
-void coinTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t coinTrig(slowSwitch theSwitch, boolean active)
 {
-  playSound( SOUND_COIN );
   increaseCredits(1,TRUE);
+  return (switchReturn_t){ 0, SOUND_COIN };
 }
 
-void startTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t startTrig(slowSwitch theSwitch, boolean active)
 {
   if(!gameOn) {
     if ( decreaseCredits() ) {
@@ -261,58 +267,82 @@ void startTrig(slowSwitch theSwitch, boolean active)
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_INSERT_COINS);    
     }
   }
+  return (switchReturn_t){0,SOUND_BONUS};
 }
 
-void drainTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t drainTrig(slowSwitch theSwitch, boolean active)
 {
-  if(gameOn) {
+  // hit the loader again (possibly a retry)   
+  setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
 
-    // hit the loader again (possibly a retry)   
-    setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
-
-    // debounce for about 2 seconds for this logic...
-    if ( !ballIsLoading )
-    {
-      if( (getScore()==0) && (ballInPlay==1) && (!tilt) ) {
-        setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_AGAIN);
-      } else {
-        nextBall();
-      }
+  // debounce for about 2 seconds for this logic...
+  if ( !ballIsLoading )
+  {
+    if( (getScore()==0) && (ballInPlay==1) && (!tilt) ) {
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_AGAIN);
+    } else {
+      nextBall();
     }
   }
+  return (switchReturn_t){0,0};
 }
 
-void tiltTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t tiltTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-  
   if ( ++tiltSense > nonVolatiles.tiltSensitivity )
   { 
     tilt = TRUE;
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
   }
+  return (switchReturn_t){0,0};
 }
 
-void spinnerTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t spinnerTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-
-  increaseScore(SCORE_ONE_HUNDRED);
-
-  playSound( SOUND_SPINNER );
-
   setTimer(SPIN_TMR, ONE_HUNDRETH_SECOND, 1);
+  return (switchReturn_t){SCORE_ONE_HUNDRED, SOUND_SPINNER};
 }
 
-void laneTrig(slowSwitch theSwitch, boolean active)
+switchReturn_t laneTrig(slowSwitch theSwitch, boolean active)
 {
-  if(!gameOn) return;
-  // TODO 
+  switchReturn_t ret = { SCORE_ONE_HUNDRED, SOUND_LANE };
+  switch ( theSwitch ) {
+    case SWITCH_LANE_LEFT:
+      if(getLampMode(LAMP_LANE_LEFT) != LAMP_ON_STATE) {
+        setLampMode(LAMP_LANE_LEFT, LAMP_ON_STATE, INFINITE, 1);
+      }
+      break;
+    case SWITCH_LANE_RIGHT:
+      if(getLampMode(LAMP_LANE_RIGHT) != LAMP_ON_STATE) {
+        setLampMode(LAMP_LANE_RIGHT, LAMP_ON_STATE, INFINITE, 1);
+      }
+      break;
+    default:
+      break;
+  }
+
+  // all lamps must be lit
+  if( (getLampMode(LAMP_LANE_LEFT) != LAMP_ON_STATE ) || 
+      (getLampMode(LAMP_LANE_RIGHT) != LAMP_ON_STATE ) ) {
+    return ret;
+  }
+
+  setLampMode(LAMP_LANE_LEFT, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
+  setLampMode(LAMP_LANE_RIGHT, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
+  return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
 }
 
-void testTrig(slowSwitch theSwitch, boolean active)
+void laneToggle(void) {
+  if ( getLampMode(LAMP_LANE_LEFT) != getLampMode(LAMP_LANE_RIGHT) ) {
+    setLampMode( LAMP_LANE_LEFT, !getLampMode(LAMP_LANE_LEFT), 0, 0 );
+    setLampMode( LAMP_LANE_RIGHT, !getLampMode(LAMP_LANE_RIGHT), 0, 0 );
+  }
+}
+
+switchReturn_t doorTrig(slowSwitch theSwitch, boolean active)
 {
-  configMode(theSwitch);
+  doorMenu(theSwitch);
+  return (switchReturn_t){0, SOUND_DOOR_BUTTON};
 }  
   
   
