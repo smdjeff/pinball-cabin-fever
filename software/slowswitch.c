@@ -25,6 +25,8 @@ const uint8_t switchBit[] = {
   21, // SWITCH_TEST_PLUS
   22, // SWITCH_TEST_MINUS
   17, // SWITCH_TEST_ESCAPE
+  28, // SWITCH_BEAR_LEFT  (MCU PC4, J0)
+  29, // SWITCH_BEAR_RIGHT (MCU PC5, J0)
 };
 
 typedef struct {
@@ -60,6 +62,7 @@ switchReturn_t tiltTrig(slowSwitch theSwitch, boolean active);
 switchReturn_t spinnerTrig(slowSwitch theSwitch, boolean active);
 switchReturn_t laneTrig(slowSwitch theSwitch, boolean active);
 switchReturn_t doorTrig(slowSwitch theSwitch, boolean active);
+switchReturn_t bearSwitchTrig(slowSwitch theSwitch, boolean active);
 
 
 
@@ -88,6 +91,8 @@ static const switchConfig_t switchConfigs[] = {
   { doorTrig, QUARTER_SECOND, true, true },
   { doorTrig, QUARTER_SECOND, true, true },
   { doorTrig, QUARTER_SECOND, true, true },
+  { bearSwitchTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { bearSwitchTrig, TEN_HUNDRETH_SECONDS, false, false },
 };
 
 
@@ -117,13 +122,18 @@ void testSwitch(void)
 
 static void scanSwitches(void)
 {
-  static uint8_t lastScan[IO_INPUT_CHIP_COUNT] = {0,};
-  uint8_t scan[IO_INPUT_CHIP_COUNT] = {0,};
+  static uint8_t lastScan[SLOWSWITCH_SCAN_BYTES] = {0,};
+  uint8_t scan[SLOWSWITCH_SCAN_BYTES] = {0,};
   uint8_t switchchip, switchmask = 0;
   bool doCheck = false;
 
   for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
     scan[i] = readIO( i, IO_GPIO );
+  }
+  // MCU pins are active low, invert to match the expanders (IPOL)
+  scan[SLOWSWITCH_MCU_CHIP] = ~SLOWSWITCH_MCU_PIN & SLOWSWITCH_MCU_MASK;
+
+  for ( uint8_t i = 0; i < SLOWSWITCH_SCAN_BYTES; i++ ) {
     if(scan[i]) { doCheck = true; }
   }
   for ( uint8_t i = 0; doCheck && i < SWITCH_QTY ; i++ ) {
@@ -133,9 +143,16 @@ static void scanSwitches(void)
       switchStatus[i].flag = true;
     }
   }  
-  for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
+  for ( uint8_t i = 0; i < SLOWSWITCH_SCAN_BYTES; i++ ) {
     lastScan[i] = scan[i];
   }
+}
+
+void initSlowSwitches(void)
+{
+  // must run after initIO(), which disables JTAG so PC4/PC5 are GPIO
+  input( SLOWSWITCH_MCU_DDR, SLOWSWITCH_MCU_MASK );
+  high( SLOWSWITCH_MCU_PORT, SLOWSWITCH_MCU_MASK );  // enable pull-ups
 }
 
 void driveSlowSwitches(void)
@@ -243,6 +260,12 @@ switchReturn_t targetSnakeTrig(slowSwitch theSwitch, boolean active)
   setLampMode(LAMP_TARGET_UPPER, LAMP_BLINK_STATE, EIGTH_SECOND, 5);
   setLampMode(LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 5);
   return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
+}
+
+switchReturn_t bearSwitchTrig(slowSwitch theSwitch, boolean active)
+{
+  // TODO: game rules for the new bear sensors. for now just score and play a sound.
+  return (switchReturn_t){ SCORE_ONE_HUNDRED, SOUND_BEAR_TARGETS };
 }
 
 switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active)

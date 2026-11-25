@@ -31,6 +31,7 @@ int main (void)
   wdt_enable(WDTO_1S);
   
   initIO();
+  initSlowSwitches();
   initSolenoids();
   flipperInitPulse();
   bearInitPulse();

@@ -74,6 +74,16 @@ typedef bool    boolean;
 #define FASTSWITCH_FLIPPER_RIGHT    (BIT(6))
 #define FASTSWITCH_FLIPPER_LEFT     (BIT(7))
 
+// extra slow switches wired straight to the MCU on the J0 (JTAG) header.
+// JTAG is disabled in initIO() so these work as GPIO.
+// inputs use internal pull-ups and are active low (open-collector NPN sensors).
+#define SLOWSWITCH_MCU_PORT         PORTC
+#define SLOWSWITCH_MCU_DDR          DDRC
+#define SLOWSWITCH_MCU_PIN          PINC
+#define SLOWSWITCH_BEAR_LEFT        (BIT(4))   // PC4, J0 pin 3 (tdo)
+#define SLOWSWITCH_BEAR_RIGHT       (BIT(5))   // PC5, J0 pin 9 (tdi)
+#define SLOWSWITCH_MCU_MASK         (SLOWSWITCH_BEAR_LEFT|SLOWSWITCH_BEAR_RIGHT)
+
 #define SOLENOID_FLIPPER_PORT       PORTD
 #define SOLENOID_FLIPPER_DDR        DDRD
 #define SOLENOID_FLIPPER_MASK       (SOLENOID_FLIPPER_LEFT|SOLENOID_FLIPPER_RIGHT)
@@ -111,6 +121,10 @@ typedef bool    boolean;
 #define IO_INPUT_CHIP_2       2
 #define IO_INPUT_CHIP_MAX     IO_INPUT_CHIP_2 + 1
 #define IO_INPUT_CHIP_COUNT   IO_INPUT_CHIP_MAX + 1
+// MCU-pin switches are scanned as one more virtual "chip" after the expanders,
+// so switch bits 24-31 map to PORTC bits 0-7
+#define SLOWSWITCH_MCU_CHIP   (IO_INPUT_CHIP_MAX)
+#define SLOWSWITCH_SCAN_BYTES (SLOWSWITCH_MCU_CHIP + 1)
 #define IO_OUTPUT_CHIP_0      3
 #define IO_OUTPUT_CHIP_1      4
 #define IO_OUTPUT_CHIP_2      5
@@ -214,7 +228,9 @@ typedef enum
   SWITCH_TEST_PLUS = 21,
   SWITCH_TEST_MINUS = 22,
   SWITCH_TEST_ESCAPE = 23,
-  SWITCH_QTY = 24
+  SWITCH_BEAR_LEFT = 24,
+  SWITCH_BEAR_RIGHT = 25,
+  SWITCH_QTY = 26
 } slowSwitch;
 
 void driveSlowSwitches(void);
