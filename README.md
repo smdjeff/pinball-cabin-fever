@@ -118,3 +118,17 @@ The Euro-style pluggable screw connector blocks are somewhat costly about $60 in
 A new pinball machine is exepensive. You can build your own, meeting your specific requirements and containing all your favorite features for significantly less.  This is especially true if you're willing to source used mechanical parts and cabinet.  It’s quite a lot of fun if you’re interested in real-time control systems as well!
 
 
+
+## TODO
+
+1. **Merge the `sounds` branch into `master` first.** The firmware running on the machine was built from `sounds` (May 2025): outlane rollover scoring, lanes toggled by the flippers, lizard/snake/bear sounds, volume setting and door menu cleanup, plus a rebuilt `tweenpin.hex`. It also swaps the outlane input bits (`SWITCH_LANE_LEFT` = 1, `SWITCH_LANE_RIGHT` = 6). `master` still has the old bits and a `// TODO` lane handler, so building from `master` today would flash older code than what's running. The branch merges cleanly.
+2. **Document the outlane proximity sensors** in the schematics. They aren't in the hand-marked control board schematic or the machine connection drawings.
+
+### Outlane sensor notes
+
+The outlane rollovers (`SWITCH_LANE_LEFT` / `SWITCH_LANE_RIGHT`) are inductive proximity sensors, not mechanical switches:
+
+* **Part:** Heschen LJ12A3-4-Z/BX, 12 mm, non-flush, NPN normally open, 4 mm sensing distance, 10–30 VDC, 200 mA max output.
+* **Wiring:** brown = +V, blue = ground, black = output to the slow switch input.
+* **Why it acts like a regular switch:** the output is open collector. It only pulls the input to ground when the steel ball is close and never drives voltage onto the input. The slow switch inputs are MCP23S08 I/O expanders with internal pull-ups enabled and logic inverted (`io.c`), so an active sensor reads just like a closed rollover switch. No level shifting or protection diode is needed on the 5 V inputs.
+* **Open question, supply voltage:** none of the machine's rails are in spec for the sensor. The 6 V lamp and 8 V logic supplies are below the 10 V minimum, and the 36 V solenoid supply is above the 30 V maximum (and sags when coils fire). Confirm which rail the brown wires are on. If the outlanes ever miss balls, check the supply first, then the mounting height (4 mm range).
