@@ -351,6 +351,7 @@ void displayView(uint8_t x, uint8_t y);
 typedef enum {
   SOUND_STOP,
   SOUND_SNAKE,
+  SOUND_LIZZARD,
   SOUND_SPINNER,
   SOUND_BEAR_TARGETS,
   SOUND_BEAR_OPEN,
@@ -358,20 +359,19 @@ typedef enum {
   SOUND_BEAR_MUSIC,
   SOUND_LOGS,
   SOUND_BONUS,
-  SOUND_LIZARD,
   SOUND_DRAIN,
   SOUND_GAME_START,
   SOUND_GAME_END,
   SOUND_GAME_TILT,
   SOUND_COIN,
+  SOUND_LANE,
+  SOUND_DOOR_BUTTON,
   SOUND_MAIN_MUSIC
 } sounds_t;
 
 void initSound( void );
 void playSound( sounds_t sound );
-void playEffect( const char *progmem_s );
-void playMusic( const char *progmem_s );
-void stopMusic( void );
+void playMusic( sounds_t sound );
 
 //////////////////////////////////
 // IO
@@ -418,10 +418,9 @@ typedef struct {
   uint32_t highScore;
   uint8_t headOpen;
   uint8_t headClose;
-  uint8_t quiteMode;
+  uint8_t volume;
   uint8_t tiltSensitivity;
   uint8_t ballsPerGame;
-  uint8_t soundBoard;
   uint8_t coinsPerGame;
   uint16_t gamesPlayed;
   uint16_t freeGameMatch;
@@ -505,7 +504,8 @@ void resetNonVolatiles(void);
 
 void setMultiplier(uint8_t mult);
 
-void configMode(slowSwitch sw);
+void laneToggle(void);
+void doorMenu(slowSwitch sw);
 void cancelBoxTimer(void);
 void attractTimerButton( fastSwitch theSwitch );
 
