@@ -121,8 +121,21 @@ A new pinball machine is exepensive. You can build your own, meeting your specif
 
 ## TODO
 
-1. **Merge the `sounds` branch into `master` first.** The firmware running on the machine was built from `sounds` (May 2025): outlane rollover scoring, lanes toggled by the flippers, lizard/snake/bear sounds, volume setting and door menu cleanup, plus a rebuilt `tweenpin.hex`. It also swaps the outlane input bits (`SWITCH_LANE_LEFT` = 1, `SWITCH_LANE_RIGHT` = 6). `master` still has the old bits and a `// TODO` lane handler, so building from `master` today would flash older code than what's running. The branch merges cleanly.
-2. **Document the outlane proximity sensors** in the schematics. They aren't in the hand-marked control board schematic or the machine connection drawings.
+1. **Rebuild and flash `tweenpin.hex`.** The `sounds` branch, which is the firmware running on the machine (outlane scoring, flipper lane toggle, new sounds, swapped outlane bits 1/6), is now merged into `master`, along with two new bear switches on J0. The committed hex is still the `sounds` build and doesn't include the bear switches.
+2. **Wire the two bear sensors to J0** (see below). Check that the J0 header is populated: it's crossed out on the 2022 hand-marked schematic.
+3. **Write the game rules for the bear sensors.** `bearSwitchTrig()` in `slowswitch.c` is a placeholder that scores 100 and plays the bear target sound.
+4. **Add the proximity sensors to the schematics.** Neither the outlane nor the bear sensors appear in the hand-marked control board schematic or the machine connection drawings.
+
+### Bear sensor switches (J0)
+
+All 24 I/O expander inputs are used, so the bear sensors connect straight to two spare ATmega1284 pins on the J0 JTAG header. JTAG is disabled in firmware, so these are plain GPIO. J1 is avoided because it's the programming header.
+
+| Switch | MCU pin | J0 pin |
+|---|---|---|
+| `SWITCH_BEAR_LEFT` | PC4 (tdo) | 3 |
+| `SWITCH_BEAR_RIGHT` | PC5 (tdi) | 9 |
+
+Pins 2 and 10 are ground on the standard 10-pin AVR JTAG layout; confirm with a meter. The inputs use the MCU's internal pull-ups and are active low, so open-collector NPN sensors like the LJ12A3 (below) connect directly. These pins have no series resistor or clamp diodes like the flipper and pop bumper inputs do, so a ~100 Ω series resistor on each sensor wire is good practice. In firmware they're scanned as a virtual fourth input chip (switch bits 28 and 29), so they get the same debounce, tilt and attract handling as the other slow switches.
 
 ### Outlane sensor notes
 
