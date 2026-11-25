@@ -68,6 +68,7 @@ void playSound( sounds_t sound )
       break;
     case SOUND_COIN:
     case SOUND_BEAR_CHEW:
+    case SOUND_BEAR_SENSOR:
       switch ( rand() % 3 ) {
         case 0: playEffect( PSTR("ROAR0") ); break;
         case 1: playEffect( PSTR("ROAR1") ); break;

@@ -123,8 +123,7 @@ A new pinball machine is exepensive. You can build your own, meeting your specif
 
 1. **Rebuild and flash `tweenpin.hex`.** The `sounds` branch, which is the firmware running on the machine (outlane scoring, flipper lane toggle, new sounds, swapped outlane bits 1/6), is now merged into `master`, along with two new bear switches on J0. The committed hex is still the `sounds` build and doesn't include the bear switches.
 2. **Wire the two bear sensors to J0** (see below). Check that the J0 header is populated: it's crossed out on the 2022 hand-marked schematic.
-3. **Write the game rules for the bear sensors.** `bearSwitchTrig()` in `slowswitch.c` is a placeholder that scores 100 and plays the bear target sound.
-4. **Add the proximity sensors to the schematics.** Neither the outlane nor the bear sensors appear in the hand-marked control board schematic or the machine connection drawings.
+3. **Add the proximity sensors to the schematics.** Neither the outlane nor the bear sensors appear in the hand-marked control board schematic or the machine connection drawings.
 
 ### Bear sensor switches (J0)
 
@@ -136,6 +135,8 @@ All 24 I/O expander inputs are used, so the bear sensors connect straight to two
 | `SWITCH_BEAR_RIGHT` | PC5 (tdi) | 9 |
 
 Pins 2 and 10 are ground on the standard 10-pin AVR JTAG layout; confirm with a meter. The inputs use the MCU's internal pull-ups and are active low, so open-collector NPN sensors like the LJ12A3 (below) connect directly. These pins have no series resistor or clamp diodes like the flipper and pop bumper inputs do, so a ~100 Ω series resistor on each sensor wire is good practice. In firmware they're scanned as a virtual fourth input chip (switch bits 28 and 29), so they get the same debounce, tilt and attract handling as the other slow switches.
+
+When hit, a bear sensor scores 100, plays a random bear roar, and blinks the bear arrow and mouth lamps 4 times. The blink is skipped while the bear head is open, since those lamps are already blinking then.
 
 ### Outlane sensor notes
 

@@ -382,6 +382,7 @@ typedef enum {
   SOUND_COIN,
   SOUND_LANE,
   SOUND_DOOR_BUTTON,
+  SOUND_BEAR_SENSOR,
   SOUND_MAIN_MUSIC
 } sounds_t;
 

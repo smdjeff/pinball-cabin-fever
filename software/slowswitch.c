@@ -264,8 +264,13 @@ switchReturn_t targetSnakeTrig(slowSwitch theSwitch, boolean active)
 
 switchReturn_t bearSwitchTrig(slowSwitch theSwitch, boolean active)
 {
-  // TODO: game rules for the new bear sensors. for now just score and play a sound.
-  return (switchReturn_t){ SCORE_ONE_HUNDRED, SOUND_BEAR_TARGETS };
+  // blink the bear lights. skip it while the bear head is open, since
+  // the lights are already blinking and a finite blink would turn them off.
+  if ( getLampMode(LAMP_BEAR_ARROW) == LAMP_OFF_STATE ) {
+    setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, 4 );
+    setLampMode( LAMP_BEAR_MOUTH, LAMP_BLINK_STATE, EIGTH_SECOND, 4 );
+  }
+  return (switchReturn_t){ SCORE_ONE_HUNDRED, SOUND_BEAR_SENSOR };
 }
 
 switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active)
