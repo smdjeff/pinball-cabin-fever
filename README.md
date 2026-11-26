@@ -9,6 +9,7 @@
 </tr></table>
 
 ## History
+* 2026 - claude assisted bug fixes
 * 2022 - added [sound boards](https://www.adafruit.com/product/2210) and [dot matrix display](https://www.adafruit.com/product/902). [YouTube Video](https://www.youtube.com/watch?v=6KhJhX8kA1E).
 * 2021 - shoot the blinking lights added.
 * 2020 - improved play by adding another pop bumper up top and a second symetrical slingshot.
