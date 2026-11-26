@@ -166,6 +166,7 @@ typedef enum {
   MUSIC_TMR,
   WATCHDOG_TMR,
   DISPLAY_TMR,
+  TILT_TMR,
   TIMER_QTY,
 } timerEvent;
 
@@ -347,6 +348,8 @@ void clearDisplay(void);
 void displayText(const char *fmt, ...);
 void displayView(uint8_t x, uint8_t y);
 void displayScrollTimer(timerEvent id, uint16_t state);
+void tiltDecayTimer(timerEvent id, uint16_t state);
+bool isSwitchClosed(slowSwitch sw);
 
 //////////////////////////////////
 // sounds
@@ -457,6 +460,7 @@ typedef enum {
 typedef enum {
   GAME_BALL_WAIT,
   GAME_BALL_LOAD,
+  GAME_BALL_CHECK,
   GAME_BALL_AGAIN,
   GAME_BALL_AGAIN_1,
   GAME_SCORE,

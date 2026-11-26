@@ -123,6 +123,7 @@ void driveTimers(void)
           case MUSIC_TMR:        cb=musicTimer; break;
           case WATCHDOG_TMR:     cb=watchdogTimer; break;
           case DISPLAY_TMR:      cb=displayScrollTimer; break;
+          case TILT_TMR:         cb=tiltDecayTimer; break;
         }
         if (cb) cb( i, tmr->data );
       }

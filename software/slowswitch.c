@@ -94,7 +94,7 @@ static const switchConfig_t switchConfigs[] = {
   { drainTrig, QUARTER_SECOND, false, true },
   { startTrig, QUARTER_SECOND, true, false },
   { coinTrig, QUARTER_SECOND, true, true },
-  { tiltTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { tiltTrig, HALF_SECOND, false, false },  // a swinging bob touches several times per nudge
   { spinnerTrig, TEN_HUNDRETH_SECONDS, false, false },
   { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
   { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
@@ -161,6 +161,13 @@ static void scanSwitches(void)
     }
     s->closed = closed;
   }
+}
+
+// raw (not debounced) switch state as of the last scan
+bool isSwitchClosed(slowSwitch sw)
+{
+  if ( sw >= SWITCH_QTY ) return false;
+  return switchStatus[sw].closed;
 }
 
 void driveSlowSwitches(void)
@@ -318,14 +325,33 @@ switchReturn_t drainTrig(slowSwitch theSwitch, boolean active)
   return (switchReturn_t){0,0};
 }
 
+// each nudge adds one to tiltSense and one count fades every TILT_DECAY,
+// so only hard or repeated nudging tilts, not a few over the whole ball.
+#define TILT_DECAY  THREE_SECONDS
+
 switchReturn_t tiltTrig(slowSwitch theSwitch, boolean active)
 {
   if ( ++tiltSense > nonVolatiles.tiltSensitivity )
   { 
     tilt = TRUE;
+    cancelTimer(TILT_TMR);
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_TILT);
   }
+  else if ( !isActiveTimer(TILT_TMR) )
+  {
+    setTimer(TILT_TMR, TILT_DECAY, 0);
+  }
   return (switchReturn_t){0,0};
+}
+
+void tiltDecayTimer(timerEvent id, uint16_t state)
+{
+  if ( tilt ) {
+    cancelTimer(TILT_TMR);
+    return;
+  }
+  if ( tiltSense ) tiltSense--;
+  if ( !tiltSense ) cancelTimer(TILT_TMR);   // otherwise repeats every TILT_DECAY
 }
 
 switchReturn_t spinnerTrig(slowSwitch theSwitch, boolean active)

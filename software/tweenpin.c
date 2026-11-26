@@ -348,29 +348,38 @@ void attractLamps(timerEvent id, uint16_t state)
 }
 
 
+// animation step for ATTRACT_PLAY / ATTRACT_PINBALL. reset whenever the
+// state changes, or attract restarts, so an animation interrupted part way
+// (game start, coin, start without credits) starts from the beginning.
+static uint8_t attractCycles = 0;
+static uint16_t attractLastState = 0xFFFF;
+
 // cycles display through attract states
 void attractTimer(timerEvent id, uint16_t state)
 {
-  static uint8_t cycles = 0;
-
   if(gameOn) return;
+
+  if ( state != attractLastState ) {
+    attractCycles = 0;
+    attractLastState = state;
+  }
 
   switch(state) {
   case ATTRACT_PLAY:
-    if(cycles == 0) cycles =80;
-    if(--cycles) {
-      displayView( cycles-80, 1 );
+    if(attractCycles == 0) attractCycles =80;
+    if(--attractCycles) {
+      displayView( attractCycles-80, 1 );
       displayText("Cabin Fever");
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);    
     } else {
-      cycles = 0;
+      attractCycles = 0;
       setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PINBALL);
     }
     break;
   case ATTRACT_PINBALL:
-    if(cycles == 0) cycles = 8;
-    if(--cycles) {
-      displayView( 3, cycles );
+    if(attractCycles == 0) attractCycles = 8;
+    if(--attractCycles) {
+      displayView( 3, attractCycles );
       displayText( "pinball" );
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);    
     } else {
@@ -500,6 +509,8 @@ void spinTimer(timerEvent id, uint16_t state)
 
 
 
+static uint8_t loadRetries = 0;
+
 void gameTimer(timerEvent id, uint16_t state)
 {
   if(!gameOn) return;
@@ -510,8 +521,21 @@ void gameTimer(timerEvent id, uint16_t state)
     playMusic( SOUND_MAIN_MUSIC );
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "ball %d", ballInPlay );
-    setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
+    setTimer(GAME_TMR, TWO_SECONDS, GAME_BALL_CHECK);
     break;    
+  case GAME_BALL_CHECK:
+    // the ball rests on the drain switch until it's loaded. if the switch
+    // is still closed, the loader kick didn't move it and nothing else will
+    // retry (the drain switch never sees the ball arrive again). a few tries
+    // only, so a stuck switch doesn't fire the loader all game.
+    if ( isSwitchClosed( SWITCH_BALL_DRAIN ) && loadRetries < 3 ) {
+      loadRetries++;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
+    } else {
+      loadRetries = 0;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_SCORE);
+    }
+    break;
   case GAME_BALL_AGAIN:
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "shoot" );
@@ -519,7 +543,7 @@ void gameTimer(timerEvent id, uint16_t state)
     break;
   case GAME_BALL_AGAIN_1:
     displayText( "again" );
-    setTimer(GAME_TMR, ONE_SECOND, GAME_SCORE);
+    setTimer(GAME_TMR, ONE_SECOND, GAME_BALL_CHECK);
     break;
   case GAME_SCORE:
     scoreDisplayDisabled = FALSE;
@@ -641,6 +665,7 @@ void nextBall(void)
 {
   tilt = FALSE;
   tiltSense = 0;
+  loadRetries = 0;
   flipperEnableSolenoids( true );
 
   setLampMode( LAMP_BACKBOX_TILT, LAMP_OFF_STATE, 0, INFINITE );
@@ -715,8 +740,10 @@ void gameOver(void)
     
   cancelTimer(CRAZY_TMR);
   cancelTimer(SPIN_TMR);
+  cancelTimer(TILT_TMR);
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
+  attractLastState = 0xFFFF;   // start the attract animations fresh
   setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
   setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
 }
