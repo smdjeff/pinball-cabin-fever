@@ -165,6 +165,8 @@ typedef enum {
   BOX_TMR,
   MUSIC_TMR,
   WATCHDOG_TMR,
+  DISPLAY_TMR,
+  TILT_TMR,
   TIMER_QTY,
 } timerEvent;
 
@@ -243,6 +245,7 @@ typedef enum {
 
 bool isSolenoidOn( solenoid sol );
 void hitSolenoid( solenoid sol );
+void allSolenoidsOff(void);
 void driveSolenoids(void);
 void initSolenoids(void);
 
@@ -337,12 +340,16 @@ void driveLampISR(void);
 #define LED_ROWS        8
 void ht16k33Init(void);
 void ht16k33Clear(void);
+void ht16k33ClearFrame(void);
 void ht16k33DisplayFrame(void);
 void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 void initDisplay(void);
 void clearDisplay(void);
 void displayText(const char *fmt, ...);
 void displayView(uint8_t x, uint8_t y);
+void displayScrollTimer(timerEvent id, uint16_t state);
+void tiltDecayTimer(timerEvent id, uint16_t state);
+bool isSwitchClosed(slowSwitch sw);
 
 //////////////////////////////////
 // sounds
@@ -453,6 +460,7 @@ typedef enum {
 typedef enum {
   GAME_BALL_WAIT,
   GAME_BALL_LOAD,
+  GAME_BALL_CHECK,
   GAME_BALL_AGAIN,
   GAME_BALL_AGAIN_1,
   GAME_SCORE,

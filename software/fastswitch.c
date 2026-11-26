@@ -13,16 +13,22 @@ void driveFastSwitches(void) {
   const uint8_t hit = 80;
   const uint8_t hold = 5;
 
-  // generally flippers are hit with full strength for 200ms
-  // then 10% while held to keep from overheating
+  // flippers are hit with 80% power for about 130 ms (FLIPPER_HIT_TIME),
+  // then drop to 5% while held to keep from overheating. a new flip needs the button to
+  // have been released for FLIPPER_REARM, which ignores release bounce
+  // without blocking quick re-flips.
+  const uint16_t FLIPPER_HIT_TIME = EIGTH_SECOND;
+  const uint16_t FLIPPER_REARM = TWO_HUNDRETH_SECONDS;
 
   static uint16_t flipperRightTimer = 0;
   static uint16_t flipperLeftTimer = 0;
+  static uint16_t flipperRightReleased = 0;
+  static uint16_t flipperLeftReleased = 0;
 
   uint16_t time = getSysTime();
   
   uint8_t pop = ~read( FASTSWITCH_BUMPER_PIN, FASTSWITCH_BUMPER_MASK );
-  if ( !gameOn ) pop = 0;
+  if ( !gameOn || tilt ) pop = 0;   // pops are dead when tilted, like the flippers
 
   if ( pop & FASTSWITCH_POP_BUMPER_UPPER ) {
     if( !isSolenoidOn(SOLENOID_POP_BUMPER_UPPER) ) {
@@ -51,7 +57,7 @@ void driveFastSwitches(void) {
   switch ( flipperGetPulseRight() ) {
     case off:
       if ( flip & FASTSWITCH_FLIPPER_RIGHT ) {
-        if ( time - flipperRightTimer > QUARTER_SECOND ) {
+        if ( (uint16_t)(time - flipperRightReleased) > FLIPPER_REARM ) {
           flipperRightTimer = time;
           flipperSetPulseRight( hit );
           laneToggle();
@@ -59,13 +65,14 @@ void driveFastSwitches(void) {
       }
       break;
     case hit:
-      if ( time - flipperRightTimer > EIGTH_SECOND ) {
+      if ( (uint16_t)(time - flipperRightTimer) > FLIPPER_HIT_TIME ) {
         flipperSetPulseRight( hold );
       }
       break;
     case hold:
       if ( !( flip & FASTSWITCH_FLIPPER_RIGHT) ) {
         flipperSetPulseRight( off );
+        flipperRightReleased = time;
       }
       break;
   }
@@ -73,7 +80,7 @@ void driveFastSwitches(void) {
   switch ( flipperGetPulseLeft() ) {
     case off:
       if ( flip & FASTSWITCH_FLIPPER_LEFT ) {
-        if ( time - flipperLeftTimer > QUARTER_SECOND ) {
+        if ( (uint16_t)(time - flipperLeftReleased) > FLIPPER_REARM ) {
           flipperLeftTimer = time;
           flipperSetPulseLeft( hit );
           laneToggle();
@@ -81,13 +88,14 @@ void driveFastSwitches(void) {
       }
       break;
     case hit:
-      if ( time - flipperLeftTimer > EIGTH_SECOND ) {
+      if ( (uint16_t)(time - flipperLeftTimer) > FLIPPER_HIT_TIME ) {
         flipperSetPulseLeft( hold );
       }
       break;
     case hold:
       if ( !( flip & FASTSWITCH_FLIPPER_LEFT) ) {
         flipperSetPulseLeft( off );
+        flipperLeftReleased = time;
       }
       break;
   }

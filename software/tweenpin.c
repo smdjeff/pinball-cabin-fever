@@ -348,29 +348,38 @@ void attractLamps(timerEvent id, uint16_t state)
 }
 
 
+// animation step for ATTRACT_PLAY / ATTRACT_PINBALL. reset whenever the
+// state changes, or attract restarts, so an animation interrupted part way
+// (game start, coin, start without credits) starts from the beginning.
+static uint8_t attractCycles = 0;
+static uint16_t attractLastState = 0xFFFF;
+
 // cycles display through attract states
 void attractTimer(timerEvent id, uint16_t state)
 {
-  static uint8_t cycles = 0;
-
   if(gameOn) return;
+
+  if ( state != attractLastState ) {
+    attractCycles = 0;
+    attractLastState = state;
+  }
 
   switch(state) {
   case ATTRACT_PLAY:
-    if(cycles == 0) cycles =80;
-    if(--cycles) {
-      displayView( cycles-80, 1 );
+    if(attractCycles == 0) attractCycles =80;
+    if(--attractCycles) {
+      displayView( attractCycles-80, 1 );
       displayText("Cabin Fever");
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);    
     } else {
-      cycles = 0;
+      attractCycles = 0;
       setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PINBALL);
     }
     break;
   case ATTRACT_PINBALL:
-    if(cycles == 0) cycles = 8;
-    if(--cycles) {
-      displayView( 3, cycles );
+    if(attractCycles == 0) attractCycles = 8;
+    if(--attractCycles) {
+      displayView( 3, attractCycles );
       displayText( "pinball" );
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);    
     } else {
@@ -382,16 +391,16 @@ void attractTimer(timerEvent id, uint16_t state)
     setTimer(ATTRACT_TMR, FIVE_SECONDS, ATTRACT_HIGH_SCORE);
     break;
   case ATTRACT_HIGH_SCORE:
-    displayText( "High Score" );
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_HIGH_SCORE_1);
+    displayText( "High Score" );  // scrolls, give it time to finish
+    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_HIGH_SCORE_1);
     break;
   case ATTRACT_HIGH_SCORE_1:
     displayText( "%ld", nonVolatiles.highScore );
     setTimer(ATTRACT_TMR, THREE_SECONDS, ATTRACT_GAME_OVER);
     break;
   case ATTRACT_GAME_OVER:
-    displayText( "GameOver" );
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_CREDITS);    
+    displayText( "GameOver" );  // scrolls, give it time to finish
+    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_CREDITS);    
     break;
   case ATTRACT_CREDITS:
     if ( nonVolatiles.coinsPerGame > 0 ) {
@@ -500,6 +509,8 @@ void spinTimer(timerEvent id, uint16_t state)
 
 
 
+static uint8_t loadRetries = 0;
+
 void gameTimer(timerEvent id, uint16_t state)
 {
   if(!gameOn) return;
@@ -510,8 +521,21 @@ void gameTimer(timerEvent id, uint16_t state)
     playMusic( SOUND_MAIN_MUSIC );
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "ball %d", ballInPlay );
-    setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
+    setTimer(GAME_TMR, TWO_SECONDS, GAME_BALL_CHECK);
     break;    
+  case GAME_BALL_CHECK:
+    // the ball rests on the drain switch until it's loaded. if the switch
+    // is still closed, the loader kick didn't move it and nothing else will
+    // retry (the drain switch never sees the ball arrive again). a few tries
+    // only, so a stuck switch doesn't fire the loader all game.
+    if ( isSwitchClosed( SWITCH_BALL_DRAIN ) && loadRetries < 3 ) {
+      loadRetries++;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
+    } else {
+      loadRetries = 0;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_SCORE);
+    }
+    break;
   case GAME_BALL_AGAIN:
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "shoot" );
@@ -519,7 +543,7 @@ void gameTimer(timerEvent id, uint16_t state)
     break;
   case GAME_BALL_AGAIN_1:
     displayText( "again" );
-    setTimer(GAME_TMR, ONE_SECOND, GAME_SCORE);
+    setTimer(GAME_TMR, ONE_SECOND, GAME_BALL_CHECK);
     break;
   case GAME_SCORE:
     scoreDisplayDisabled = FALSE;
@@ -533,7 +557,10 @@ void gameTimer(timerEvent id, uint16_t state)
     break;
   case GAME_TILT:
     scoreDisplayDisabled = TRUE;
-    setTimer(BEAR_TMR, ONE_SECOND, BEAR_CLOSE); //BEAR_EJECT
+    // eject rather than just close: if a ball was being chewed when the
+    // game tilted, closing would trap it in the bear and the game could
+    // never continue. an eject with no ball just kicks the empty capture.
+    setTimer(BEAR_TMR, ONE_SECOND, BEAR_EJECT);
     for (int i=0; i<=LAMP_LAST; i++) {
       setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
     }
@@ -541,6 +568,7 @@ void gameTimer(timerEvent id, uint16_t state)
     setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
     playSound( SOUND_GAME_TILT );
     flipperEnableSolenoids( false );
+    allSolenoidsOff();
     displayText( "tilt" );
     setTimer(GAME_TMR, THREE_SECONDS, GAME_BALL_WAIT);
     break;
@@ -622,12 +650,13 @@ void startGame(void)
 
   cancelTimer(ATTRACT_TMR);
   cancelTimer(ATTRACT_LAMP_TMR);
-  setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
-  setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
-
+  // all lamps off first. this loop used to run after the start button was
+  // lit, so the start button lamp was always off during a game.
   for (uint8_t i=0; i<LAMP_QTY; i++) {
     setLampMode(i, LAMP_OFF_STATE, 0, 1);
   }
+  setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
+  setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
 
   nextBall();
 }
@@ -636,6 +665,7 @@ void nextBall(void)
 {
   tilt = FALSE;
   tiltSense = 0;
+  loadRetries = 0;
   flipperEnableSolenoids( true );
 
   setLampMode( LAMP_BACKBOX_TILT, LAMP_OFF_STATE, 0, INFINITE );
@@ -669,23 +699,34 @@ void nextBall(void)
     playSound( SOUND_DRAIN );
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
   } else {
-    gameOver();
+    // game over sound first, while gameOn is still set so it can play
     playSound( SOUND_GAME_END );
+    gameOver();
   }
 }
 
 void gameOver(void)
 {
   if ( highScoreExceeded ) {
+    // clear it so another gameOver() (door menu escape in attract)
+    // doesn't award the free game and count the stat again
+    highScoreExceeded = FALSE;
     nonVolatiles.freeGameHighScore++;
     increaseCredits( nonVolatiles.coinsPerGame, FALSE );
     nonVolatiles.highScore = score;
-    saveNonVolatiles();
   }
+  // save every game so the games played stat isn't lost at power off.
+  // saveNonVolatiles() only writes bytes that changed.
+  saveNonVolatiles();
 
   gameOn = FALSE;
+  // a game ended from the door menu while tilted would otherwise leave
+  // tilt set in attract mode, where it blocks the start button
+  tilt = FALSE;
 
   flipperEnableSolenoids( false );
+  allSolenoidsOff();
+  playMusic( SOUND_STOP );
 
   for (uint8_t i=0; i<LAMP_QTY; i++) {
     setLampMode(i, LAMP_OFF_STATE, 0, 1);
@@ -698,8 +739,11 @@ void gameOver(void)
   setLampMode( LAMP_START_BUTTON, LAMP_BLINK_STATE, HALF_SECOND, INFINITE );
     
   cancelTimer(CRAZY_TMR);
+  cancelTimer(SPIN_TMR);
+  cancelTimer(TILT_TMR);
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
+  attractLastState = 0xFFFF;   // start the attract animations fresh
   setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
   setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
 }
@@ -719,12 +763,11 @@ void increaseCredits(uint8_t value, boolean coinMode)
 
 boolean decreaseCredits(void)
 {
-  nonVolatiles.gamesPlayed++;
-  
   if ( credits < nonVolatiles.coinsPerGame ) 
     return FALSE;
   
   credits -= nonVolatiles.coinsPerGame;
+  nonVolatiles.gamesPlayed++;   // was counted even when there weren't enough credits
   return TRUE;
 }
 
@@ -774,7 +817,7 @@ void saveNonVolatiles(void)
 {
   nonVolatiles.checkSum = 
       checkCalc( 0, (uint8_t*)&nonVolatiles, sizeof(nonVolatiles) - sizeof(nonVolatiles.checkSum ) );
-  eeprom_write_block( (uint8_t*)&nonVolatiles, (uint8_t*)0, sizeof(nonVolatiles) );
+  eeprom_update_block( (uint8_t*)&nonVolatiles, (uint8_t*)0, sizeof(nonVolatiles) );
 }
 
 
