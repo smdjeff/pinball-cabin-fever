@@ -36,7 +36,7 @@ write-fuse-internal-rc:
 	$(AVRDUDE) -U lfuse:w:0xe2:m
 	
 flash: all
-	$(AVRDUDE) -V -u -U flash:w:$(PRJ).hex:i
+	$(AVRDUDE) -V -U flash:w:$(PRJ).hex:i
 
 disasm: $(PRJ).elf
 	$(OBJDUMP) -d $(PRJ).elf
