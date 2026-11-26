@@ -152,7 +152,8 @@ typedef enum
   TWO_SECONDS = 400,
   THREE_SECONDS = 600,
   FOUR_SECONDS = 800,
-  FIVE_SECONDS = 1000
+  FIVE_SECONDS = 1000,
+  SIXTY_SECONDS = 12000
 } systimeDurations;
 
 typedef enum {
@@ -167,6 +168,7 @@ typedef enum {
   WATCHDOG_TMR,
   DISPLAY_TMR,
   TILT_TMR,
+  SCORE_FLASH_TMR,
   TIMER_QTY,
 } timerEvent;
 
@@ -244,7 +246,7 @@ typedef enum {
 } solenoidStates;
 
 bool isSolenoidOn( solenoid sol );
-void hitSolenoid( solenoid sol );
+bool hitSolenoid( solenoid sol );
 void allSolenoidsOff(void);
 void driveSolenoids(void);
 void initSolenoids(void);
@@ -255,6 +257,7 @@ void initSolenoids(void);
 
 typedef uint8_t fastSwitch;
 void driveFastSwitches(void);
+void resetBearNoiseCooldown(void);
 void initFastSwitches(void);
 
 
@@ -338,6 +341,9 @@ void driveLampISR(void);
 #define LED_BACKPACKS   5
 #define LED_COLUMNS     8
 #define LED_ROWS        8
+#define SCORE_RIGHT_MARGIN  2   // blank columns left of the display's right edge when right-justifying a score
+#define TEXT_LEFT_MARGIN    2   // blank columns right of the display's left edge for left-justified text
+#define SCORE_FLASH_DURATION  FIVE_HUNDRETH_SECONDS   // how long the green score flash lasts (~50 ms)
 void ht16k33Init(void);
 void ht16k33Clear(void);
 void ht16k33ClearFrame(void);
@@ -347,7 +353,9 @@ void initDisplay(void);
 void clearDisplay(void);
 void displayText(const char *fmt, ...);
 void displayView(uint8_t x, uint8_t y);
+uint16_t displayTextWidth(const char *s);
 void displayScrollTimer(timerEvent id, uint16_t state);
+void scoreFlashTimer(timerEvent id, uint16_t state);
 void tiltDecayTimer(timerEvent id, uint16_t state);
 bool isSwitchClosed(slowSwitch sw);
 
@@ -379,6 +387,7 @@ typedef enum {
 void initSound( void );
 void playSound( sounds_t sound );
 void playMusic( sounds_t sound );
+boolean isGameOverStingPlaying(void);
 
 //////////////////////////////////
 // IO
@@ -470,8 +479,10 @@ typedef enum {
 
 typedef enum {
   ATTRACT_PLAY,
+  ATTRACT_FEVER,
   ATTRACT_PINBALL,
   ATTRACT_SCORE,
+  ATTRACT_SCORE_1,
   ATTRACT_NEW_HIGH_SCORE,
   ATTRACT_HIGH_SCORE,
   ATTRACT_HIGH_SCORE_1,
@@ -482,12 +493,14 @@ typedef enum {
   ATTRACT_INSERT_COINS_1,
   ATTRACT_INSERT_COINS_2,
   ATTRACT_BLANK,
-  ATTRACT_FREE
+  ATTRACT_FREE,
+  ATTRACT_ENDED,          // just after a game: "GameOver" and the score
+  ATTRACT_ENDED_SCORE     // alternate until the game over music finishes
 } attractStates;
 
 void resetGame(void);
 void startGame(void);
-void nextBall(void);
+void nextBall(boolean drained);
 void gameOver(void);
 
 

@@ -69,23 +69,22 @@ static void setCache(lamp ix, boolean on)
   }
 }
 
+// note: these checked sizeof(array), a byte count. lampState and the
+// uint16_t arrays are 2 bytes per lamp, so lamps past LAMP_QTY got through.
 bool isLampOn( lamp theLamp ) {
-  if ( theLamp >= sizeof(lampState) ) return false;
+  if ( theLamp >= LAMP_QTY ) return false;
   return (lampState[theLamp] != LAMP_OFF_STATE);
 }
 
 lampStates getLampMode( lamp theLamp )
 {
-  if ( theLamp >= sizeof(lampState) ) return 0;
+  if ( theLamp >= LAMP_QTY ) return 0;
   return lampState[theLamp];
 }
 
 void setLampMode( lamp theLamp, lampStates mode, uint16_t time, uint8_t cycles )
 {
-  if ( theLamp >= sizeof(lampState) ) return;
-  if ( theLamp >= sizeof(lampStateTime) ) return;
-  if ( theLamp >= sizeof(lampCycles) ) return;
-  if ( theLamp >= sizeof(lampTime) ) return;
+  if ( theLamp >= LAMP_QTY ) return;
 
     setCache(theLamp, (mode >= LAMP_ON_STATE));
     lampState[theLamp] = mode;

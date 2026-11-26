@@ -41,7 +41,8 @@ int main (void)
   loadNonVolatiles();
   
   initTimers();
-  setTimer(WATCHDOG_TMR, ONE_SECOND, 0);
+  // well inside the ~1 s watchdog timeout (ONE_SECOND fired just after it)
+  setTimer(WATCHDOG_TMR, HALF_SECOND, 0);
   sei();
   
   gameOver();
@@ -348,16 +349,84 @@ void attractLamps(timerEvent id, uint16_t state)
 }
 
 
-// animation step for ATTRACT_PLAY / ATTRACT_PINBALL. reset whenever the
-// state changes, or attract restarts, so an animation interrupted part way
-// (game start, coin, start without credits) starts from the beginning.
+// animation step for ATTRACT_PLAY / ATTRACT_FEVER / ATTRACT_PINBALL. reset
+// whenever the state changes, or attract restarts, so an animation
+// interrupted part way (game start, coin, start without credits) starts
+// from the beginning.
 static uint8_t attractCycles = 0;
 static uint16_t attractLastState = 0xFFFF;
+static boolean endScoreShown = FALSE;   // end-of-game hold has shown the score
+
+// how many ONE_HUNDRETH_SECOND ticks to pause once a sliding word reaches
+// the center of the display.
+#define SLIDE_WORD_HOLD_TICKS  (HALF_SECOND/ONE_HUNDRETH_SECOND)
+
+// slides `word` onto the display from one edge, pauses centered for half a
+// second, then continues off the opposite edge. fromLeft slides left->right
+// (entering from the left, exiting right); otherwise it's mirrored. returns
+// true while still animating, false once the word has fully exited.
+typedef enum { SLIDE_ENTER, SLIDE_HOLD, SLIDE_EXIT } slidePhase_t;
+
+static boolean attractSlideWord(const char *word, boolean fromLeft)
+{
+  static int8_t slideX = 0;
+  static uint8_t holdTicks = 0;
+  static slidePhase_t phase = SLIDE_ENTER;
+
+  int8_t w = displayTextWidth(word);
+  int8_t centerX = ((LED_BACKPACKS*LED_COLUMNS) - w) / 2;
+  int8_t step = fromLeft ? 1 : -1;
+
+  if ( attractCycles == 0 ) {
+    attractCycles = 1;   // marks this state as initialized
+    slideX = fromLeft ? -w : (LED_BACKPACKS*LED_COLUMNS);
+    phase = SLIDE_ENTER;
+    holdTicks = 0;
+  }
+
+  boolean exited = fromLeft ? ( slideX >= (LED_BACKPACKS*LED_COLUMNS) )
+                             : ( slideX + w <= 0 );
+  if ( exited ) {
+    clearDisplay();   // wipe the last sliver of the glyph left at the edge
+    return FALSE;
+  }
+
+  displayView( slideX, 1 );
+  displayText( "%s", word );
+
+  switch ( phase ) {
+    case SLIDE_ENTER:
+      if ( slideX == centerX ) {
+        phase = SLIDE_HOLD;
+        holdTicks = 0;
+      } else {
+        slideX += step;
+      }
+      break;
+    case SLIDE_HOLD:
+      if ( ++holdTicks >= SLIDE_WORD_HOLD_TICKS ) {
+        phase = SLIDE_EXIT;
+        slideX += step;   // leave center now, so SLIDE_HOLD can't re-trigger
+      }
+      break;
+    case SLIDE_EXIT:
+      slideX += step;
+      break;
+  }
+  return TRUE;
+}
 
 // cycles display through attract states
 void attractTimer(timerEvent id, uint16_t state)
 {
   if(gameOn) return;
+
+  // the lamp shows start with the rest of attract, after the end-of-game
+  // hold. any way out of the hold (coin, start without credits) starts them.
+  if ( state != ATTRACT_ENDED && state != ATTRACT_ENDED_SCORE &&
+       !isActiveTimer(ATTRACT_LAMP_TMR) ) {
+    setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
+  }
 
   if ( state != attractLastState ) {
     attractCycles = 0;
@@ -365,38 +434,49 @@ void attractTimer(timerEvent id, uint16_t state)
   }
 
   switch(state) {
-  case ATTRACT_PLAY:
-    if(attractCycles == 0) attractCycles =80;
-    if(--attractCycles) {
-      displayView( attractCycles-80, 1 );
-      displayText("Cabin Fever");
-      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);    
+  case ATTRACT_PLAY:        // "cabin" slides in from the left
+    if ( attractSlideWord("cabin", TRUE) ) {
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
     } else {
-      attractCycles = 0;
-      setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PINBALL);
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FEVER);
     }
     break;
-  case ATTRACT_PINBALL:
-    if(attractCycles == 0) attractCycles = 8;
-    if(--attractCycles) {
-      displayView( 3, attractCycles );
-      displayText( "pinball" );
-      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);    
+  case ATTRACT_FEVER:        // "fever" slides in from the right
+    if ( attractSlideWord("fever", FALSE) ) {
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FEVER);
     } else {
-      setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_SCORE);
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);
     }
     break;
-  case ATTRACT_SCORE:
+  case ATTRACT_PINBALL:      // "pinball" slides in from the left
+    if ( attractSlideWord("pinball", TRUE) ) {
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);
+    } else {
+      // straight on: pinball has already left the display, and waiting
+      // here left it blank for a second
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_SCORE);
+    }
+    break;
+  case ATTRACT_SCORE:       // label first, like "High Score"
+    displayText( "Score" );
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_SCORE_1);
+    break;
+  case ATTRACT_SCORE_1:
     displayScore( 0 );
-    setTimer(ATTRACT_TMR, FIVE_SECONDS, ATTRACT_HIGH_SCORE);
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_HIGH_SCORE);
     break;
   case ATTRACT_HIGH_SCORE:
     displayText( "High Score" );  // scrolls, give it time to finish
     setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_HIGH_SCORE_1);
     break;
   case ATTRACT_HIGH_SCORE_1:
-    displayText( "%ld", nonVolatiles.highScore );
-    setTimer(ATTRACT_TMR, THREE_SECONDS, ATTRACT_GAME_OVER);
+    {
+      char s[12] = {0,};
+      sprintf(s,"%ld", nonVolatiles.highScore);
+      displayView( (LED_BACKPACKS*LED_COLUMNS) - displayTextWidth(s) - SCORE_RIGHT_MARGIN, 1 );
+      displayText("%s", s);
+    }
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_GAME_OVER);
     break;
   case ATTRACT_GAME_OVER:
     displayText( "GameOver" );  // scrolls, give it time to finish
@@ -424,15 +504,31 @@ void attractTimer(timerEvent id, uint16_t state)
     break;
   case ATTRACT_INSERT_COINS_2:
     displayText( "coins" );
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_BLANK);
+    // straight to the cabin slide, not ATTRACT_BLANK's second of nothing
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PLAY);
     break;
   case ATTRACT_BLANK:
     clearDisplay();
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PLAY);
     break;
-  case ATTRACT_FREE: 
+  case ATTRACT_FREE:
     displayText( "freegame" );
     setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_SCORE);
+    break;
+  case ATTRACT_ENDED:
+    // music over and the score has been shown at least once: attract
+    if ( endScoreShown && !isGameOverStingPlaying() ) {
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
+      break;
+    }
+    displayText( "GameOver" );  // scrolls, give it time to finish
+    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_ENDED_SCORE);
+    break;
+  case ATTRACT_ENDED_SCORE:
+    displayScore( 0 );
+    endScoreShown = TRUE;
+    setTimer(ATTRACT_TMR, TWO_SECONDS,
+             isGameOverStingPlaying() ? ATTRACT_ENDED : ATTRACT_PLAY);
     break;
   }
 }
@@ -511,6 +607,10 @@ void spinTimer(timerEvent id, uint16_t state)
 
 static uint8_t loadRetries = 0;
 
+// the high score was beaten while a ball was loading. GAME_TMR is busy with
+// the load then, so the "freegame" message waits until GAME_SCORE.
+static boolean freeCreditPending = FALSE;
+
 void gameTimer(timerEvent id, uint16_t state)
 {
   if(!gameOn) return;
@@ -546,8 +646,16 @@ void gameTimer(timerEvent id, uint16_t state)
     setTimer(GAME_TMR, ONE_SECOND, GAME_BALL_CHECK);
     break;
   case GAME_SCORE:
-    scoreDisplayDisabled = FALSE;
+    // one shot. timers repeat until cancelled, and this used to redraw the
+    // score every few ticks, wiping out the green score flash.
+    cancelTimer(GAME_TMR);
     ballIsLoading = FALSE;
+    if ( freeCreditPending ) {
+      freeCreditPending = FALSE;
+      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
+      break;
+    }
+    scoreDisplayDisabled = FALSE;
     displayScore( 0 );
     break;
   case GAME_FREE_CREDIT:
@@ -561,6 +669,7 @@ void gameTimer(timerEvent id, uint16_t state)
     // game tilted, closing would trap it in the bear and the game could
     // never continue. an eject with no ball just kicks the empty capture.
     setTimer(BEAR_TMR, ONE_SECOND, BEAR_EJECT);
+    cancelTimer(BOX_TMR);   // backbox bear chase would keep lighting lamps
     for (int i=0; i<=LAMP_LAST; i++) {
       setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
     }
@@ -622,13 +731,20 @@ void bearTimer(timerEvent id, uint16_t state)
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_TEST);
     break;
   case BEAR_CLOSE:
-    setLampMode( LAMP_BEAR_ARROW, LAMP_OFF_STATE, 0, INFINITE );
-    setLampMode( LAMP_BEAR_MOUTH, LAMP_OFF_STATE, 0, INFINITE );
-    // and back to shoot the blinking lights
-    for(int i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
-      setLampMode(i, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
+    // the backbox bear chase ends with the bear mode
+    cancelTimer( BOX_TMR );
+    // lamps only during play. gameOver() and a tilt also close the bear,
+    // and resetting the target lamps then disturbed attract / tilt lamps.
+    if ( gameOn && !tilt ) {
+      cancelBoxTimer();   // backbox bears back to steady on
+      setLampMode( LAMP_BEAR_ARROW, LAMP_OFF_STATE, 0, INFINITE );
+      setLampMode( LAMP_BEAR_MOUTH, LAMP_OFF_STATE, 0, INFINITE );
+      // and back to shoot the blinking lights
+      for(int i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
+        setLampMode(i, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
+      }
+      playMusic( SOUND_MAIN_MUSIC );
     }
-    playMusic( SOUND_MAIN_MUSIC );
     // thru...
   case BEAR_HOLD_CLOSE:
   default:
@@ -644,6 +760,7 @@ void startGame(void)
   resetScore();
   gameOn = TRUE;
   highScoreExceeded = FALSE;
+  freeCreditPending = FALSE;
   ballInPlay = 0;
   multiplier = 1;
   crazyMode = FALSE;
@@ -658,10 +775,10 @@ void startGame(void)
   setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
   setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
 
-  nextBall();
+  nextBall(FALSE);
 }
 
-void nextBall(void)
+void nextBall(boolean drained)
 {
   tilt = FALSE;
   tiltSense = 0;
@@ -696,7 +813,7 @@ void nextBall(void)
   }
 
   if (ballInPlay++ < nonVolatiles.ballsPerGame) {
-    playSound( SOUND_DRAIN );
+    if ( drained ) playSound( SOUND_DRAIN );
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
   } else {
     // game over sound first, while gameOn is still set so it can play
@@ -720,9 +837,13 @@ void gameOver(void)
   saveNonVolatiles();
 
   gameOn = FALSE;
+  freeCreditPending = FALSE;
   // a game ended from the door menu while tilted would otherwise leave
   // tilt set in attract mode, where it blocks the start button
   tilt = FALSE;
+
+  // flippers mashed right after drain/game-over shouldn't immediately growl
+  resetBearNoiseCooldown();
 
   flipperEnableSolenoids( false );
   allSolenoidsOff();
@@ -741,11 +862,16 @@ void gameOver(void)
   cancelTimer(CRAZY_TMR);
   cancelTimer(SPIN_TMR);
   cancelTimer(TILT_TMR);
+  cancelTimer(GAME_TMR);
+  cancelTimer(SCORE_FLASH_TMR);
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
   attractLastState = 0xFFFF;   // start the attract animations fresh
-  setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
-  setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
+  // hold on "GameOver" and the final score while the game over music plays.
+  // attract (display and lamp shows) starts once it finishes.
+  endScoreShown = FALSE;
+  cancelTimer(ATTRACT_LAMP_TMR);
+  setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_ENDED);
 }
 
 
@@ -824,12 +950,28 @@ void saveNonVolatiles(void)
 void displayScore(uint8_t color)
 {
   extern uint8_t invertDisplayColors;
-  invertDisplayColors = color;
 
   char s[12] = {0,};
   sprintf(s,"%ld", score);
-  displayView( 0, 1 );
-  displayText("%6s", s);
+  displayView( (LED_BACKPACKS*LED_COLUMNS) - displayTextWidth(s) - SCORE_RIGHT_MARGIN, 1 );
+  // the colour only applies to this frame. left set, any message drawn
+  // during a flash (tilt, freegame, GameOver) came out on solid green.
+  invertDisplayColors = color;
+  displayText("%s", s);
+  invertDisplayColors = 0;
+}
+
+// ends the green score flash triggered by increaseScore(), unless some
+// other message (tilt, freegame, ...) has taken over the display since.
+void scoreFlashTimer(timerEvent id, uint16_t state)
+{
+  // one shot. left repeating, it redrew the score every half second and
+  // overwrote "ball N", "shoot again" and the door menu.
+  cancelTimer(SCORE_FLASH_TMR);
+  if ( !gameOn ) return;   // belt and suspenders; gameOver() also cancels this
+  if ( !scoreDisplayDisabled ) {
+    displayScore( 0 );
+  }
 }
 
 void resetScore(void)
@@ -848,15 +990,21 @@ void increaseScore(uint16_t value)
   score += value * multiplier;
 
   if ( !scoreDisplayDisabled ) {
-    displayScore( 0xff );  
+    displayScore( 0xff );
+    setTimer(SCORE_FLASH_TMR, SCORE_FLASH_DURATION, 0);
   }
-  
+
   if ( !highScoreExceeded )
   {
     if ( score > nonVolatiles.highScore )
     {
       highScoreExceeded = TRUE;
-      setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
+      if ( ballIsLoading ) {
+        // don't replace the pending ball check / load on GAME_TMR
+        freeCreditPending = TRUE;
+      } else {
+        setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_FREE_CREDIT);
+      }
       hitSolenoid( SOLENOID_KNOCKER );
     }
   }

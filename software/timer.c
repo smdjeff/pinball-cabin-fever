@@ -124,6 +124,7 @@ void driveTimers(void)
           case WATCHDOG_TMR:     cb=watchdogTimer; break;
           case DISPLAY_TMR:      cb=displayScrollTimer; break;
           case TILT_TMR:         cb=tiltDecayTimer; break;
+          case SCORE_FLASH_TMR:  cb=scoreFlashTimer; break;
         }
         if (cb) cb( i, tmr->data );
       }

@@ -51,14 +51,16 @@ bool isSolenoidOn( solenoid sol )
   return ( active & BIT(sol) ) != 0;
 }
 
-void hitSolenoid( solenoid sol ) 
+// returns true if the coil fired, false if it was ignored (retrigger time)
+bool hitSolenoid( solenoid sol )
 {
   uint16_t time = getSysTime();
-  if ( sol >= SOLENOID_QTY ) return;
-  if ( (uint16_t)(time - onTime[sol]) < SOLENOID_RETRIGGER ) return;
+  if ( sol >= SOLENOID_QTY ) return false;
+  if ( (uint16_t)(time - onTime[sol]) < SOLENOID_RETRIGGER ) return false;
   onTime[sol] = time;
   active |= BIT(sol);
   setSolenoid( sol, true );
+  return true;
 }
 
 void allSolenoidsOff(void)

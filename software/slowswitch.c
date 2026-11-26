@@ -306,7 +306,7 @@ switchReturn_t drainTrig(slowSwitch theSwitch, boolean active)
   // it), so the drain was treated as a failed launch and the same ball was
   // served again with tilt still on and the flippers dead.
   if ( tilt ) {
-    nextBall();
+    nextBall(TRUE);
     return (switchReturn_t){0,0};
   }
 
@@ -319,7 +319,7 @@ switchReturn_t drainTrig(slowSwitch theSwitch, boolean active)
     if( (getScore()==0) && (ballInPlay==1) && (!tilt) ) {
       setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_AGAIN);
     } else {
-      nextBall();
+      nextBall(TRUE);
     }
   }
   return (switchReturn_t){0,0};

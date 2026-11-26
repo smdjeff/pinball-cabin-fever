@@ -77,6 +77,11 @@ static int16_t measureText( const char *s ) {
   return w ? w - 1 : 0;
 }
 
+// pixel width text would occupy, for right-justifying before displayText().
+uint16_t displayTextWidth(const char *s) {
+  return measureText(s);
+}
+
 // draws text with its left edge shifted 'left' columns to the left
 static void drawText( const char *s, int16_t left, int8_t down ) {
   ht16k33ClearFrame();
@@ -98,8 +103,12 @@ static void drawText( const char *s, int16_t left, int8_t down ) {
   ht16k33DisplayFrame();
 }
 
-// shows text. text wider than the display scrolls left after a short pause,
-// stopping when its end reaches the right edge.
+// left-justified text starts TEXT_LEFT_MARGIN in from the left edge. text
+// too wide for that scrolls left after a short pause, stopping when its end
+// is SCORE_RIGHT_MARGIN in from the right edge.
+#define TEXT_FIT_WIDTH   (DISPLAY_WIDTH - TEXT_LEFT_MARGIN - SCORE_RIGHT_MARGIN)
+
+// shows text, left-justified unless displayView() set a position.
 void displayText(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -116,16 +125,16 @@ void displayText(const char *fmt, ...) {
   }
 
   scroll = 0;
-  drawText( text, 0, DISPLAY_DEFAULT_Y );
-  if ( textWidth > DISPLAY_WIDTH ) {
+  drawText( text, -TEXT_LEFT_MARGIN, DISPLAY_DEFAULT_Y );
+  if ( textWidth > TEXT_FIT_WIDTH ) {
     setTimer( DISPLAY_TMR, SCROLL_START_PAUSE, 0 );
   }
 }
 
 void displayScrollTimer(timerEvent id, uint16_t state) {
   scroll++;
-  drawText( text, scroll, DISPLAY_DEFAULT_Y );
-  if ( scroll < textWidth - DISPLAY_WIDTH ) {
+  drawText( text, scroll - TEXT_LEFT_MARGIN, DISPLAY_DEFAULT_Y );
+  if ( scroll < textWidth - TEXT_FIT_WIDTH ) {
     setTimer( DISPLAY_TMR, SCROLL_STEP, 0 );
   } else {
     cancelTimer( DISPLAY_TMR );

@@ -1,5 +1,16 @@
 #include "tweenpin.h"
 
+// starts already "expired" so a press shortly after power-up still growls,
+// instead of being muted until SIXTY_SECONDS has passed since boot.
+static uint16_t lastBearNoiseTime = -(SIXTY_SECONDS + 1);
+static uint8_t  prevAttractFlip = 0;
+
+// restarts the attract bear-noise cooldown, as if one had just played.
+// called when a game ends so flippers mashed right after drain/game-over
+// don't immediately growl.
+void resetBearNoiseCooldown(void) {
+  lastBearNoiseTime = getSysTime();
+}
 
 void initFastSwitches(void) {
     input( FASTSWITCH_BUMPER_DDR, FASTSWITCH_BUMPER_MASK );    
@@ -30,24 +41,39 @@ void driveFastSwitches(void) {
   uint8_t pop = ~read( FASTSWITCH_BUMPER_PIN, FASTSWITCH_BUMPER_MASK );
   if ( !gameOn || tilt ) pop = 0;   // pops are dead when tilted, like the flippers
 
+  // score only when the coil actually fires. checking isSolenoidOn() let a
+  // switch still closed between the end of the pulse and the retrigger time
+  // score (and restart the sound) on every pass of the main loop.
   if ( pop & FASTSWITCH_POP_BUMPER_UPPER ) {
-    if( !isSolenoidOn(SOLENOID_POP_BUMPER_UPPER) ) {
+    if ( hitSolenoid( SOLENOID_POP_BUMPER_UPPER ) ) {
       increaseScore(SCORE_ONE_HUNDRED);
-      hitSolenoid( SOLENOID_POP_BUMPER_UPPER );
       playSound( SOUND_LIZZARD );
       setLampMode( LAMP_POP_BUMPER_UPPER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
     }
   }
   if ( pop & FASTSWITCH_POP_BUMPER_LOWER ) {
-    if( !isSolenoidOn(SOLENOID_POP_BUMPER_LOWER) ) {
+    if ( hitSolenoid( SOLENOID_POP_BUMPER_LOWER ) ) {
       increaseScore(SCORE_ONE_HUNDRED);
-      hitSolenoid( SOLENOID_POP_BUMPER_LOWER );
       playSound( SOUND_SNAKE );
       setLampMode( LAMP_POP_BUMPER_LOWER, LAMP_FLASH_STATE, EIGTH_SECOND, 1 );
     }
   }
 
   uint8_t flip = ~read( FASTSWITCH_FLIPPER_PIN, FASTSWITCH_FLIPPER_MASK );
+
+  // attract mode: a flipper press growls a random bear noise, but no more
+  // often than once every 60 seconds so it doesn't get obnoxious.
+  if ( !gameOn ) {
+    uint8_t attractFlip = flip & FASTSWITCH_FLIPPER_MASK;
+    if ( attractFlip & ~prevAttractFlip ) {   // newly pressed, not held
+      if ( (uint16_t)(time - lastBearNoiseTime) > SIXTY_SECONDS ) {
+        lastBearNoiseTime = time;
+        playSound( SOUND_BEAR_CHEW );   // random bear roar
+      }
+    }
+    prevAttractFlip = attractFlip;
+  }
+
   if ( !gameOn ) flip = 0;
   if ( crazyMode ) {
     flip = ((flip&FASTSWITCH_FLIPPER_LEFT)?FASTSWITCH_FLIPPER_RIGHT:0) | 
