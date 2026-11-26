@@ -541,6 +541,7 @@ void gameTimer(timerEvent id, uint16_t state)
     setLampMode( LAMP_BACKBOX_TILT, LAMP_ON_STATE, 0, INFINITE );
     playSound( SOUND_GAME_TILT );
     flipperEnableSolenoids( false );
+    allSolenoidsOff();
     displayText( "tilt" );
     setTimer(GAME_TMR, THREE_SECONDS, GAME_BALL_WAIT);
     break;
@@ -669,8 +670,9 @@ void nextBall(void)
     playSound( SOUND_DRAIN );
     setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
   } else {
-    gameOver();
+    // game over sound first, while gameOn is still set so it can play
     playSound( SOUND_GAME_END );
+    gameOver();
   }
 }
 
@@ -686,6 +688,8 @@ void gameOver(void)
   gameOn = FALSE;
 
   flipperEnableSolenoids( false );
+  allSolenoidsOff();
+  playMusic( SOUND_STOP );
 
   for (uint8_t i=0; i<LAMP_QTY; i++) {
     setLampMode(i, LAMP_OFF_STATE, 0, 1);

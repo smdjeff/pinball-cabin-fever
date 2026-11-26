@@ -243,6 +243,7 @@ typedef enum {
 
 bool isSolenoidOn( solenoid sol );
 void hitSolenoid( solenoid sol );
+void allSolenoidsOff(void);
 void driveSolenoids(void);
 void initSolenoids(void);
 
