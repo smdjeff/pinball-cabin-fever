@@ -42,9 +42,23 @@ typedef struct {
 } switchConfig_t;
 
 
+// debounce, per switch:
+// - a closure only counts if the switch was open for at least SWITCH_BOUNCE
+//   before it. this ignores the chatter when a switch that was held closed
+//   (ball resting in the drain or bear capture, a held button) is released.
+// - after a closure counts, more closures are ignored for the switch's
+//   debounce time from switchConfigs[].
+// both timers are checked every scan and end as flags, so they keep working
+// when the 16-bit system tick wraps.
+#define SWITCH_BOUNCE   TWO_HUNDRETH_SECONDS
+
 typedef struct {
-  bool flag;
-  uint16_t lastDebounce;
+  bool flag;        // a closure counted, handle it in driveSlowSwitches()
+  bool closed;      // raw state at the last scan
+  bool armed;       // open long enough, the next closure counts
+  bool locked;      // within the debounce time of the last counted closure
+  uint16_t openTime;
+  uint16_t lockTime;
 } switchStatus_t;
 
 static switchStatus_t switchStatus[SWITCH_QTY] = {0,};
@@ -117,24 +131,35 @@ void testSwitch(void)
 
 static void scanSwitches(void)
 {
-  static uint8_t lastScan[IO_INPUT_CHIP_COUNT] = {0,};
   uint8_t scan[IO_INPUT_CHIP_COUNT] = {0,};
-  uint8_t switchchip, switchmask = 0;
-  bool doCheck = false;
+  uint16_t t = getSysTime();
 
   for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
     scan[i] = readIO( i, IO_GPIO );
-    if(scan[i]) { doCheck = true; }
   }
-  for ( uint8_t i = 0; doCheck && i < SWITCH_QTY ; i++ ) {
-    switchchip = switchBit[i] >> 3;
-    switchmask = BIT(switchBit[i] & 0x07);
-    if( (scan[switchchip] & switchmask) && !(lastScan[switchchip] & switchmask) ) { 
-      switchStatus[i].flag = true;
+  for ( uint8_t i = 0; i < SWITCH_QTY ; i++ ) {
+    switchStatus_t *s = &switchStatus[i];
+    bool closed = ( scan[ switchBit[i] >> 3 ] & BIT( switchBit[i] & 0x07 ) ) != 0;
+
+    if ( s->locked && (uint16_t)(t - s->lockTime) > switchConfigs[i].debounce ) {
+      s->locked = false;
     }
-  }  
-  for ( uint8_t i = IO_INPUT_CHIP_0; i < IO_INPUT_CHIP_MAX; i++ ) {
-    lastScan[i] = scan[i];
+    if ( closed ) {
+      if ( s->armed && !s->locked ) {
+        s->flag = true;
+        s->locked = true;
+        s->lockTime = t;
+      }
+      s->armed = false;
+    } else {
+      if ( s->closed ) {
+        s->openTime = t;   // just opened
+      }
+      if ( !s->armed && (uint16_t)(t - s->openTime) >= SWITCH_BOUNCE ) {
+        s->armed = true;
+      }
+    }
+    s->closed = closed;
   }
 }
 
@@ -146,18 +171,13 @@ void driveSlowSwitches(void)
     if ( s->flag ) {
       s->flag = false;
       const switchConfig_t *c = &switchConfigs[i];
-      uint16_t t = getSysTime();
-      if ( t - s->lastDebounce > c->debounce ) {
-        s->lastDebounce = t;
+      if ( !tilt || c->enabledInTilt ) {
+        if ( gameOn || c->enabledInAttract ) {
 
-        if ( !tilt || c->enabledInTilt ) {
-          if ( gameOn || c->enabledInAttract ) {
+          switchReturn_t r = c->callback(i,true);
 
-            switchReturn_t r = c->callback(i,true);
-
-            if ( r.points ) increaseScore( r.points );
-            if ( r.sound ) playSound( r.sound );
-          }
+          if ( r.points ) increaseScore( r.points );
+          if ( r.sound ) playSound( r.sound );
         }
       }
     }
@@ -332,10 +352,17 @@ switchReturn_t laneTrig(slowSwitch theSwitch, boolean active)
   return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
 }
 
+// swaps which outlane is lit when exactly one is lit.
+// note: !getLampMode() gave 0 or 1, and 1 is LAMP_BLINK_OFF_STATE, not
+// LAMP_ON_STATE. the "lit" lane really blinked at 100 Hz (looking dim) and
+// never counted as lit, so the lane bonus couldn't be completed by moving
+// the lit lane with the flippers.
 void laneToggle(void) {
-  if ( getLampMode(LAMP_LANE_LEFT) != getLampMode(LAMP_LANE_RIGHT) ) {
-    setLampMode( LAMP_LANE_LEFT, !getLampMode(LAMP_LANE_LEFT), 0, 0 );
-    setLampMode( LAMP_LANE_RIGHT, !getLampMode(LAMP_LANE_RIGHT), 0, 0 );
+  bool left  = ( getLampMode(LAMP_LANE_LEFT)  == LAMP_ON_STATE );
+  bool right = ( getLampMode(LAMP_LANE_RIGHT) == LAMP_ON_STATE );
+  if ( left != right ) {
+    setLampMode( LAMP_LANE_LEFT,  left  ? LAMP_OFF_STATE : LAMP_ON_STATE, 0, INFINITE );
+    setLampMode( LAMP_LANE_RIGHT, right ? LAMP_OFF_STATE : LAMP_ON_STATE, 0, INFINITE );
   }
 }
 
