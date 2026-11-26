@@ -169,6 +169,10 @@ typedef enum {
   DISPLAY_TMR,
   TILT_TMR,
   SCORE_FLASH_TMR,
+  VOLUME_TMR,
+  SPARKLE_TMR,
+  EFFECT_TMR,
+  SERVO_TMR,
   TIMER_QTY,
 } timerEvent;
 
@@ -179,6 +183,7 @@ void gameTimer(timerEvent id, uint16_t state);
 void crazyModeTimer(timerEvent id, uint16_t state);
 void spinTimer(timerEvent id, uint16_t state);
 void boxTimer(timerEvent id, uint16_t state);
+void sparkleTimer(timerEvent id, uint16_t state);
 void musicTimer(timerEvent id, uint16_t state);
 void watchdogTimer(timerEvent id, uint16_t data);
 void systemTickISR(void);
@@ -332,6 +337,11 @@ typedef enum {
 lampStates getLampMode( lamp theLamp );
 void setLampMode( lamp theLamp, lampStates mode, uint16_t time, uint8_t cycles );
 void driveLamps(void);
+void lampSaveAll(void);
+void lampRestoreAll(void);
+void lampSparkleBegin(void);
+void lampSparkle(lamp theLamp);
+void lampSparkleClear(void);
 void driveLampISR(void);
 
 //////////////////////////////////
@@ -381,12 +391,23 @@ typedef enum {
   SOUND_COIN,
   SOUND_LANE,
   SOUND_DOOR_BUTTON,
-  SOUND_MAIN_MUSIC
+  SOUND_MAIN_MUSIC,
+  SOUND_BEAR_CHOMP,       // one chomp of the bear chew
+  SOUND_BEAR_SPIT         // the bear spitting the ball out
 } sounds_t;
 
+// sound board volume: VOLUME_STEPS '+' commands, starting VOLUME_BOOT_WAIT
+// after power-up, VOLUME_STEP_TIME apart (~4.5 s in all)
+#define VOLUME_STEPS      102   // adafruit: volume 0-204, each '+' adds 2
+#define VOLUME_BOOT_WAIT  TWO_SECONDS
+#define VOLUME_STEP_TIME  FOUR_HUNDRETH_SECONDS
+
 void initSound( void );
+void volumeTimer(timerEvent id, uint16_t remaining);
 void playSound( sounds_t sound );
 void playMusic( sounds_t sound );
+void stopEffects( void );
+void effectTimer(timerEvent id, uint16_t remaining);
 boolean isGameOverStingPlaying(void);
 
 //////////////////////////////////
@@ -424,7 +445,12 @@ uint8_t flipperGetPulseLeft(void);
 uint8_t flipperGetPulseRight(void);
 
 void bearInitPulse(void);
+// bear head servo. slew = timer ticks per pulse count step (0 = jump); a
+// tick setting of n takes n+1 x 5 ms. bearSetPulse() uses the default slew.
+#define BEAR_SLEW_DEFAULT  3    // ~20 ms per step, ~100 ms open <-> shut
 void bearSetPulse(uint8_t pulse);
+void bearMoveTo(uint8_t pulse, uint8_t slew);
+void bearServoTimer(timerEvent id, uint16_t data);
 
 //////////////////////////////////
 // game play
@@ -457,10 +483,8 @@ extern nonVolatiles_t nonVolatiles;
 typedef enum {
   BEAR_OPEN,
   BEAR_HOLD_OPEN,
-  BEAR_CHEW,
-  BEAR_CHEW_1,
-  BEAR_EJECT,
-  BEAR_EJECT_1,
+  BEAR_CHEW,        // capture: runs the chew / eject steps (tweenpin.c)
+  BEAR_EJECT,       // just the eject steps
   BEAR_CLOSE,
   BEAR_HOLD_CLOSE,
   BEAR_TEST
@@ -494,8 +518,10 @@ typedef enum {
   ATTRACT_INSERT_COINS_2,
   ATTRACT_BLANK,
   ATTRACT_FREE,
-  ATTRACT_ENDED,          // just after a game: "GameOver" and the score
-  ATTRACT_ENDED_SCORE     // alternate until the game over music finishes
+  ATTRACT_ENDED,          // just after a game: "game", "over" and the score
+  ATTRACT_ENDED_1,
+  ATTRACT_ENDED_SCORE,    // repeat until the game over music finishes
+  ATTRACT_GAME_OVER_1
 } attractStates;
 
 void resetGame(void);

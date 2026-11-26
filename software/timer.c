@@ -31,12 +31,45 @@ void bearInitPulse(void) {
   TCCR0B = _BV(CS02) | _BV(CS00); // 1024 prescaller
 }
 
+// the head moves toward its target one pulse count at a time, `slew` timer
+// ticks apart, instead of jumping (which slammed it). pulse units are
+// 1024/16 MHz = 64 us: about 15 for a 1 ms servo pulse and 31 for 2 ms, so
+// open (20) to shut (25) is only a few steps.
+static uint8_t bearPos = 0;      // pulse being output now, 0 = none yet
+static uint8_t bearTarget = 0;
+static uint8_t bearSlew = 0;
+
+void bearMoveTo(uint8_t pulse, uint8_t slew)
+{
+  bearTarget = pulse;
+  bearSlew = slew;
+  if ( !slew || !bearPos ) {
+    // no slew, or the first position since power-up: go straight there
+    bearPos = pulse;
+    BEAR_OCR = pulse;
+    cancelTimer( SERVO_TMR );
+    return;
+  }
+  if ( bearPos != bearTarget && !isActiveTimer( SERVO_TMR ) ) {
+    setTimer( SERVO_TMR, bearSlew, 0 );
+  }
+}
+
+void bearServoTimer(timerEvent id, uint16_t data)
+{
+  if ( bearPos < bearTarget ) bearPos++;
+  else if ( bearPos > bearTarget ) bearPos--;
+  BEAR_OCR = bearPos;
+  if ( bearPos == bearTarget ) {
+    cancelTimer( SERVO_TMR );
+  } else {
+    setTimer( SERVO_TMR, bearSlew, 0 );
+  }
+}
+
 void bearSetPulse(uint8_t pulse)
 {
-  // 1024/16 MHz = 64 us units. 
-  // servo control range is about 15 for 1 ms servo pulse
-  // and 31 for 2 ms servo control pulse
-  BEAR_OCR = pulse;
+  bearMoveTo( pulse, BEAR_SLEW_DEFAULT );
 }
 
 void flipperInitPulse(void) {
@@ -125,6 +158,10 @@ void driveTimers(void)
           case DISPLAY_TMR:      cb=displayScrollTimer; break;
           case TILT_TMR:         cb=tiltDecayTimer; break;
           case SCORE_FLASH_TMR:  cb=scoreFlashTimer; break;
+          case VOLUME_TMR:       cb=volumeTimer; break;
+          case SPARKLE_TMR:      cb=sparkleTimer; break;
+          case EFFECT_TMR:       cb=effectTimer; break;
+          case SERVO_TMR:        cb=bearServoTimer; break;
         }
         if (cb) cb( i, tmr->data );
       }

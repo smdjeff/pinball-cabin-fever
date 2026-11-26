@@ -52,6 +52,13 @@ typedef struct {
 // when the 16-bit system tick wraps.
 #define SWITCH_BOUNCE   TWO_HUNDRETH_SECONDS
 
+// the spinner closes many times a second on a fast spin, and even short
+// debounce times lost most of the counts. it gets no open time and no
+// debounce time: a closure counts if the switch was seen open at the scan
+// before. the only filter left is that the lock lasts until the next 5 ms
+// system tick, which still drops contact chatter within a single closure.
+#define SPINNER_BOUNCE  0
+
 typedef struct {
   bool flag;        // a closure counted, handle it in driveSlowSwitches()
   bool closed;      // raw state at the last scan
@@ -95,7 +102,7 @@ static const switchConfig_t switchConfigs[] = {
   { startTrig, QUARTER_SECOND, true, false },
   { coinTrig, QUARTER_SECOND, true, true },
   { tiltTrig, HALF_SECOND, false, false },  // a swinging bob touches several times per nudge
-  { spinnerTrig, TEN_HUNDRETH_SECONDS, false, false },
+  { spinnerTrig, 0, false, false },   // see SPINNER_BOUNCE
   { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
   { laneTrig, TEN_HUNDRETH_SECONDS, false, false },
   { doorTrig, QUARTER_SECOND, true, true },
@@ -155,7 +162,8 @@ static void scanSwitches(void)
       if ( s->closed ) {
         s->openTime = t;   // just opened
       }
-      if ( !s->armed && (uint16_t)(t - s->openTime) >= SWITCH_BOUNCE ) {
+      uint16_t bounce = ( i == SWITCH_SPINNER ) ? SPINNER_BOUNCE : SWITCH_BOUNCE;
+      if ( !s->armed && (uint16_t)(t - s->openTime) >= bounce ) {
         s->armed = true;
       }
     }
@@ -208,10 +216,15 @@ switchReturn_t targetBearTrig(slowSwitch theSwitch, boolean active)
     }
   }
   
-  setTimer(BEAR_TMR, ONE_HUNDRETH_SECOND, BEAR_OPEN);
+  // open the bear now, not from a timer 10-15 ms later, so the head and
+  // ROAR0 start the moment the last target is hit
+  bearTimer( BEAR_TMR, BEAR_OPEN );
   setTimer(BOX_TMR, QUARTER_SECOND, 0);
   hitSolenoid( SOLENOID_WOODBLOCK );
-  return (switchReturn_t){ SCORE_ONE_THOUSAND, SOUND_BONUS };
+  // no bonus sound: BEAR_OPEN plays ROAR0. a bonus sound sent just before
+  // it made the effects board drop the ROAR0 play that followed straight
+  // after its stop, so the head opened silently.
+  return (switchReturn_t){ SCORE_ONE_THOUSAND, 0 };
 }
 
 switchReturn_t targetLogjamTrig(slowSwitch theSwitch, boolean active)
@@ -277,7 +290,8 @@ switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active)
   // still active when tilted so the ball gets ejected, but no score
   setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW);
   if ( tilt ) return (switchReturn_t){ 0, 0 };
-  return (switchReturn_t){ SCORE_FIVE_THOUSAND, SOUND_BEAR_CHEW };
+  // no sound here: bearTimer() roars on each chomp of the chew
+  return (switchReturn_t){ SCORE_FIVE_THOUSAND, 0 };
 }
 
 switchReturn_t coinTrig(slowSwitch theSwitch, boolean active)

@@ -19,28 +19,101 @@ void initSound( void )
   #ifdef USART0_ENABLED
     uart_init( UART_BAUD_SELECT( 9600, F_CPU ) );
     UCSR0B &= ~( _BV(RXCIE0) | _BV(RXEN0) );
-    uart_puts_P( "\nq\n+\n" );
+    uart_puts_P( "\nq\n" );
   #endif
-  #ifdef USART1_ENABLED  
+  #ifdef USART1_ENABLED
     uart1_init( UART_BAUD_SELECT( 9600, F_CPU ) );
     UCSR1B &= ~( _BV(RXCIE1) | _BV(RXEN1) );
-    uart1_puts_P( "\nq\n+\n" );
+    uart1_puts_P( "\nq\n" );
+  #endif
+  // volume up, once the boards have booted. see volumeTimer().
+  setTimer( VOLUME_TMR, VOLUME_BOOT_WAIT, VOLUME_STEPS );
+}
+
+// the boards power up at their default volume, and we can't read it back.
+// '+' raises it one step and does nothing at the maximum, so enough of them
+// leaves both boards at full volume. sent one at a time from a timer: the
+// boards are still booting when initSound() runs, and initSound() runs
+// before interrupts are on, so a long string would fill the tx buffer and
+// hang (uart_puts waits for room) until the watchdog reset.
+void volumeTimer(timerEvent id, uint16_t remaining)
+{
+  #ifdef USART0_ENABLED
+    uart_puts_P( "+\n" );
+  #endif
+  #ifdef USART1_ENABLED
+    uart1_puts_P( "+\n" );
+  #endif
+  if ( --remaining ) {
+    setTimer( VOLUME_TMR, VOLUME_STEP_TIME, remaining );
+  } else {
+    cancelTimer( VOLUME_TMR );
+  }
+}
+
+// like the music board, the effects board sometimes drops a play sent
+// right after the stop that cuts off the previous effect (the bear's ROAR0
+// went missing behind the target bonus sound). the play is sent at once, so
+// effects stay instant, then again EFFECT_RETRY_DELAY apart. the board
+// ignores a play while one is playing, so repeats only matter if the first
+// was dropped. a new effect or a stop replaces the pending repeats, so a
+// fast spinner doesn't flood the serial line. an effect shorter than the
+// last repeat (~210 ms) would be replayed by it, so those are sent once:
+// only DRIP (80 ms). the next shortest, HIT, is 370 ms.
+#define EFFECT_TRIES        3
+#define EFFECT_RETRY_DELAY  TEN_HUNDRETH_SECONDS
+
+static const char *pendingEffect = NULL;   // PROGMEM name being repeated
+
+static void sendEffectPlay( const char *progmem_s )
+{
+  #ifdef USART0_ENABLED
+    char s[] = "P        OGG\n";
+    strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
+    uart_puts( s );
   #endif
 }
 
-static void playEffect( const char *progmem_s ) 
+static void playEffectTries( const char *progmem_s, uint8_t tries )
 {
   #ifdef USART0_ENABLED
     uart_puts_P( "q\n" );
+    pendingEffect = NULL;
+    cancelTimer( EFFECT_TMR );
     if ( !progmem_s ) return;
     if ( tilt ) return;
     // if ( !gameOn ) return;
     if ( nonVolatiles.volume < 1 ) return;
-    char s[] = "P        OGG\n";
-    strncpy_P( &s[1], progmem_s, strlen_P(progmem_s) );
-    // __delay_ms(20); /// can't be shorter?
-    uart_puts( s );
+    sendEffectPlay( progmem_s );
+    if ( tries > 1 ) {
+      pendingEffect = progmem_s;
+      setTimer( EFFECT_TMR, EFFECT_RETRY_DELAY, tries - 1 );
+    }
   #endif
+}
+
+static void playEffect( const char *progmem_s )
+{
+  playEffectTries( progmem_s, EFFECT_TRIES );
+}
+
+void effectTimer(timerEvent id, uint16_t remaining)
+{
+  if ( pendingEffect && !tilt ) {
+    sendEffectPlay( pendingEffect );
+  }
+  if ( pendingEffect && --remaining ) {
+    setTimer( EFFECT_TMR, EFFECT_RETRY_DELAY, remaining );
+  } else {
+    pendingEffect = NULL;
+    cancelTimer( EFFECT_TMR );
+  }
+}
+
+// stop whatever sound effect is playing
+void stopEffects( void )
+{
+  playEffect( NULL );   // sends the stop, then returns
 }
 
 // music channel: stop whatever is playing
@@ -75,7 +148,7 @@ void playSound( sounds_t sound )
     case SOUND_SPINNER:
     case SOUND_DOOR_BUTTON:
     case SOUND_LANE:
-      playEffect( PSTR("DRIP") );
+      playEffectTries( PSTR("DRIP"), 1 );   // 80 ms, shorter than a repeat
       break;
     case SOUND_COIN:
     case SOUND_BEAR_CHEW:
@@ -85,8 +158,16 @@ void playSound( sounds_t sound )
         case 2: playEffect( PSTR("ROAR2") ); break;
       }
       break;
+    // bear sequence: ROAR0 as the head opens, ROAR1 on each chomp (cut
+    // short), ROAR2 as the ball is spat out (played to the end)
     case SOUND_BEAR_OPEN:
-      playEffect( PSTR("BEARMOU") );
+      playEffect( PSTR("ROAR0") );
+      break;
+    case SOUND_BEAR_CHOMP:
+      playEffect( PSTR("ROAR1") );
+      break;
+    case SOUND_BEAR_SPIT:
+      playEffect( PSTR("ROAR2") );
       break;
     case SOUND_LOGS:
       switch ( rand() % 3 ) {

@@ -241,6 +241,9 @@ const uint8_t horizLamps[11][6] PROGMEM = {
 };
 
 
+#define BURST_CENTER_ROW  7     // middle row of vertLamps (15 rows)
+#define BURST_REPEATS     4
+
 void attractLamps(timerEvent id, uint16_t state)
 {
   static uint8_t stateCount;
@@ -341,10 +344,29 @@ void attractLamps(timerEvent id, uint16_t state)
       for (uint8_t i=0; i<=LAMP_LAST_PLAYFIELD; i++) {
         setLampMode( i, LAMP_ON_STATE, 0, INFINITE );
       }
-      setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0/*state*/);
+      setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, ++state);
       stateCount = 0;
-      break;      
+      break;
 
+    case 7:
+      // center burst: a ring of light spreads from the middle row of the
+      // playfield out to the top and bottom, a few times
+      for (uint8_t i=0; i<3; i++) {
+        lamp up   = pgm_read_byte(&vertLamps[BURST_CENTER_ROW-stateCount][i]);
+        lamp down = pgm_read_byte(&vertLamps[BURST_CENTER_ROW+stateCount][i]);
+        setLampMode( up,   LAMP_BLINK_ON_STATE, EIGTH_SECOND, 1 );
+        setLampMode( down, LAMP_BLINK_ON_STATE, EIGTH_SECOND, 1 );
+      }
+      setTimer(ATTRACT_LAMP_TMR, FIVE_HUNDRETH_SECONDS, state);
+      if ( ++stateCount > BURST_CENTER_ROW ) {
+        stateCount = 0;
+        setTimer(ATTRACT_LAMP_TMR, HALF_SECOND, state);   // pause between bursts
+        if ( ++stateRepeat >= BURST_REPEATS ) {
+          stateRepeat = 0;
+          setTimer(ATTRACT_LAMP_TMR, HALF_SECOND, 0);     // back to the start
+        }
+      }
+      break;
   }
 }
 
@@ -416,6 +438,13 @@ static boolean attractSlideWord(const char *word, boolean fromLeft)
   return TRUE;
 }
 
+// shows a word right justified, SCORE_RIGHT_MARGIN in from the right edge
+static void displayTextRight(const char *s)
+{
+  displayView( (LED_BACKPACKS*LED_COLUMNS) - displayTextWidth(s) - SCORE_RIGHT_MARGIN, 1 );
+  displayText( "%s", s );
+}
+
 // cycles display through attract states
 void attractTimer(timerEvent id, uint16_t state)
 {
@@ -423,7 +452,8 @@ void attractTimer(timerEvent id, uint16_t state)
 
   // the lamp shows start with the rest of attract, after the end-of-game
   // hold. any way out of the hold (coin, start without credits) starts them.
-  if ( state != ATTRACT_ENDED && state != ATTRACT_ENDED_SCORE &&
+  if ( state != ATTRACT_ENDED && state != ATTRACT_ENDED_1 &&
+       state != ATTRACT_ENDED_SCORE &&
        !isActiveTimer(ATTRACT_LAMP_TMR) ) {
     setTimer(ATTRACT_LAMP_TMR, ONE_HUNDRETH_SECOND, 0);
   }
@@ -434,22 +464,22 @@ void attractTimer(timerEvent id, uint16_t state)
   }
 
   switch(state) {
-  case ATTRACT_PLAY:        // "cabin" slides in from the left
-    if ( attractSlideWord("cabin", TRUE) ) {
+  case ATTRACT_PLAY:        // "Cabin" slides in from the left
+    if ( attractSlideWord("Cabin", TRUE) ) {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
     } else {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FEVER);
     }
     break;
-  case ATTRACT_FEVER:        // "fever" slides in from the right
-    if ( attractSlideWord("fever", FALSE) ) {
+  case ATTRACT_FEVER:        // "Fever" slides in from the right
+    if ( attractSlideWord("Fever", FALSE) ) {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_FEVER);
     } else {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);
     }
     break;
-  case ATTRACT_PINBALL:      // "pinball" slides in from the left
-    if ( attractSlideWord("pinball", TRUE) ) {
+  case ATTRACT_PINBALL:      // "Pinball" slides in from the left
+    if ( attractSlideWord("Pinball", TRUE) ) {
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PINBALL);
     } else {
       // straight on: pinball has already left the display, and waiting
@@ -479,8 +509,12 @@ void attractTimer(timerEvent id, uint16_t state)
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_GAME_OVER);
     break;
   case ATTRACT_GAME_OVER:
-    displayText( "GameOver" );  // scrolls, give it time to finish
-    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_CREDITS);    
+    displayText( "Game" );            // left justified
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_GAME_OVER_1);
+    break;
+  case ATTRACT_GAME_OVER_1:
+    displayTextRight( "Over" );
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_CREDITS);
     break;
   case ATTRACT_CREDITS:
     if ( nonVolatiles.coinsPerGame > 0 ) {
@@ -521,8 +555,12 @@ void attractTimer(timerEvent id, uint16_t state)
       setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
       break;
     }
-    displayText( "GameOver" );  // scrolls, give it time to finish
-    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_ENDED_SCORE);
+    displayText( "Game" );            // left justified
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_ENDED_1);
+    break;
+  case ATTRACT_ENDED_1:
+    displayTextRight( "Over" );
+    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_ENDED_SCORE);
     break;
   case ATTRACT_ENDED_SCORE:
     displayScore( 0 );
@@ -607,6 +645,16 @@ void spinTimer(timerEvent id, uint16_t state)
 
 static uint8_t loadRetries = 0;
 
+// bear mode: from the head opening (BEAR targets completed) until it closes
+// again. it carries across a drain, so the next ball keeps the bear music.
+static boolean bearMode = FALSE;
+
+// the background music for the game as it stands right now
+static sounds_t gameMusic(void)
+{
+  return bearMode ? SOUND_BEAR_MUSIC : SOUND_MAIN_MUSIC;
+}
+
 // the high score was beaten while a ball was loading. GAME_TMR is busy with
 // the load then, so the "freegame" message waits until GAME_SCORE.
 static boolean freeCreditPending = FALSE;
@@ -618,7 +666,7 @@ void gameTimer(timerEvent id, uint16_t state)
   switch(state) {
   case GAME_BALL_LOAD:
     ballIsLoading = TRUE;
-    playMusic( SOUND_MAIN_MUSIC );
+    playMusic( gameMusic() );   // bear music if the bear is still open
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "ball %d", ballInPlay );
     setTimer(GAME_TMR, TWO_SECONDS, GAME_BALL_CHECK);
@@ -678,7 +726,7 @@ void gameTimer(timerEvent id, uint16_t state)
     playSound( SOUND_GAME_TILT );
     flipperEnableSolenoids( false );
     allSolenoidsOff();
-    displayText( "tilt" );
+    displayText( "Tilt" );
     setTimer(GAME_TMR, THREE_SECONDS, GAME_BALL_WAIT);
     break;
   case GAME_BALL_WAIT:
@@ -687,50 +735,183 @@ void gameTimer(timerEvent id, uint16_t state)
   }
 }
 
+// "bear attack" while the bear chews and ejects a ball: music off, every
+// lamp off (except the start button), and the roars in chewSteps. the
+// game's lamps are saved first and put back when the bear closes, which
+// also restarts the main music.
+static boolean bearAttack = FALSE;
+
+// playfield sparkle while the bear is open waiting for the ball, until the
+// chew starts. it's an output overlay (lampSparkle), so the game's lamps
+// keep working underneath.
+static boolean bearSparkle = FALSE;
+
+static void bearSparkleStart(void)
+{
+  if ( bearSparkle || !gameOn || tilt ) return;
+  bearSparkle = TRUE;
+  lampSparkleBegin();
+  setTimer( SPARKLE_TMR, ONE_HUNDRETH_SECOND, 0 );
+}
+
+static void bearSparkleEnd(void)
+{
+  bearSparkle = FALSE;
+  cancelTimer( SPARKLE_TMR );
+  lampSparkleClear();
+}
+
+// chew timing: jaw open (roar playing), then jaw shut, three times
+// BEAR_CHEW_SLOWDOWN > 1 slows the chew down for debugging
+#define BEAR_CHEW_SLOWDOWN     1
+#define BEAR_CHEW_OPEN_TIME    (BEAR_CHEW_SLOWDOWN*((QUARTER_SECOND + HALF_SECOND + EIGTH_SECOND)/2))   // ~435 ms
+#define BEAR_CHEW_CLOSED_TIME  (BEAR_CHEW_SLOWDOWN*QUARTER_SECOND)
+
+// the bear runs fixed sequences of steps: chewSteps from a capture, and
+// ejectSteps to free the capture (tilt). each step sets the jaw (and the
+// mouth / arrow lamps with it: mouth lit while open, arrow lit while shut),
+// optionally cuts the roar that's playing, starts a sound, fires the eject
+// coil, then holds for `time`. after the last step the bear closes. sounds
+// and lamps only happen during a bear attack (in play, not tilted).
+typedef struct {
+  boolean  open;     // jaw position
+  uint8_t  slew;     // jaw speed: ticks per servo step (see bearMoveTo)
+  boolean  cut;      // stop the roar that's playing first
+  sounds_t sound;    // sound to start, SOUND_STOP for none
+  boolean  kick;     // fire the eject coil
+  uint16_t time;     // hold before the next step
+} bearStep_t;
+
+// jaw speeds, ticks per servo step. open <-> shut is ~5 steps.
+#define SLEW_SLAM   1    // ~10 ms a step, ~50 ms: snaps shut on the ball
+#define SLEW_CHOMP  3    // ~20 ms a step, ~100 ms: chomp shutting
+#define SLEW_CHOMP_OPEN  15   // ~80 ms a step, ~400 ms: chomp opening
+#define SLEW_FINAL_CHOMP 15   // ~80 ms a step, ~400 ms: final chomp, spits the ball
+#define SLEW_EJECT  4    // ~25 ms a step, ~125 ms: plain eject (tilt)
+
+// capture: slam shut on the ball (silent), three roaring chomps, then the
+// final chomp, which opens slowly and spits the ball out with ROAR2
+static const bearStep_t chewSteps[] = {
+  { FALSE, SLEW_SLAM,        TRUE,  SOUND_STOP,       FALSE, BEAR_CHEW_CLOSED_TIME },
+  { TRUE,  SLEW_CHOMP_OPEN,  FALSE, SOUND_BEAR_CHOMP, FALSE, BEAR_CHEW_OPEN_TIME   },   // ROAR1
+  { FALSE, SLEW_CHOMP,       TRUE,  SOUND_STOP,       FALSE, BEAR_CHEW_CLOSED_TIME },
+  { TRUE,  SLEW_CHOMP_OPEN,  FALSE, SOUND_BEAR_CHOMP, FALSE, BEAR_CHEW_OPEN_TIME   },   // ROAR1
+  { FALSE, SLEW_CHOMP,       TRUE,  SOUND_STOP,       FALSE, BEAR_CHEW_CLOSED_TIME },
+  { TRUE,  SLEW_CHOMP_OPEN,  FALSE, SOUND_BEAR_CHOMP, FALSE, BEAR_CHEW_OPEN_TIME   },   // ROAR1
+  { FALSE, SLEW_CHOMP,       TRUE,  SOUND_STOP,       FALSE, BEAR_CHEW_CLOSED_TIME },
+  // final chomp: ROAR2 (played out) as it starts to open, HALF_SECOND to
+  // open before the kick
+  { TRUE,  SLEW_FINAL_CHOMP, FALSE, SOUND_BEAR_SPIT,  FALSE, HALF_SECOND           },   // ROAR2
+  { TRUE,  SLEW_FINAL_CHOMP, FALSE, SOUND_STOP,       TRUE,  HALF_SECOND           },   // kick
+};
+
+// plain eject (tilt): open, kick whatever is in the capture, close. silent.
+static const bearStep_t ejectSteps[] = {
+  { TRUE,  SLEW_EJECT,       FALSE, SOUND_STOP,       FALSE, HALF_SECOND           },
+  { TRUE,  SLEW_EJECT,       FALSE, SOUND_STOP,       TRUE,  HALF_SECOND           },   // kick
+};
+
+// BEAR_TMR data while a sequence runs: sequence id + step number
+#define BEAR_SEQ_CHEW    0x100
+#define BEAR_SEQ_EJECT   0x200
+#define BEAR_SEQ_MASK    0xFF00
+
+static void bearStep( uint16_t seq, uint8_t i )
+{
+  const bearStep_t *steps = ( seq == BEAR_SEQ_EJECT ) ? ejectSteps : chewSteps;
+  uint8_t qty = ( seq == BEAR_SEQ_EJECT )
+                  ? sizeof(ejectSteps)/sizeof(ejectSteps[0])
+                  : sizeof(chewSteps)/sizeof(chewSteps[0]);
+  if ( i >= qty ) {
+    bearTimer( BEAR_TMR, BEAR_CLOSE );
+    return;
+  }
+  const bearStep_t *s = &steps[i];
+  bearMoveTo( s->open ? nonVolatiles.headOpen : nonVolatiles.headClose, s->slew );
+  if ( bearAttack ) {
+    if ( s->cut ) stopEffects();
+    if ( s->sound != SOUND_STOP ) playSound( s->sound );
+    setLampMode( LAMP_BEAR_MOUTH, s->open ? LAMP_ON_STATE : LAMP_OFF_STATE, 0, INFINITE );
+    setLampMode( LAMP_BEAR_ARROW, s->open ? LAMP_OFF_STATE : LAMP_ON_STATE, 0, INFINITE );
+  }
+  if ( s->kick ) hitSolenoid( SOLENOID_BEAR_CAPTURE );
+  setTimer( BEAR_TMR, s->time, seq + i + 1 );
+}
+
+// one twinkle every ~25 ms, each ~50 ms. stops itself on a tilt or game
+// over; the bear closing stops it too.
+void sparkleTimer(timerEvent id, uint16_t state)
+{
+  if ( !bearSparkle || !gameOn || tilt ) {
+    bearSparkleEnd();
+    return;
+  }
+  lampSparkle( rand() % (LAMP_LAST_PLAYFIELD+1) );
+  setTimer( SPARKLE_TMR, TWO_HUNDRETH_SECONDS, 0 );
+}
+
+static void bearAttackStart(void)
+{
+  // a bouncing capture switch restarts the chew. saving again then would
+  // save the darkened lamps instead of the game's.
+  if ( bearAttack || !gameOn || tilt ) return;
+  bearAttack = TRUE;
+  bearSparkleEnd();   // the chew is dark, no sparkle
+  lampSaveAll();
+  cancelTimer( BOX_TMR );   // backbox bear chase from bear mode
+  for ( uint8_t i = 0; i <= LAMP_LAST; i++ ) {
+    if ( i != LAMP_START_BUTTON ) {
+      setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
+    }
+  }
+  playMusic( SOUND_STOP );
+}
+
+// restore: put the game's lamps back. not after a tilt or game over, which
+// have set the lamps they want.
+static void bearAttackEnd(boolean restore)
+{
+  if ( !bearAttack ) return;
+  bearAttack = FALSE;
+  if ( restore ) lampRestoreAll();
+}
+
 // cycles the bear through its various motions
 //   modes are activated by "BEAR" targets and bear capture
 void bearTimer(timerEvent id, uint16_t state)
 {
-  static uint8_t cycles=0;
+  if ( state & BEAR_SEQ_MASK ) {   // in a chew or eject sequence
+    bearStep( state & BEAR_SEQ_MASK, state & 0xFF );
+    return;
+  }
 
   switch(state) {
   case BEAR_OPEN:
+    bearMode = TRUE;
     playSound( SOUND_BEAR_OPEN );
     playMusic( SOUND_BEAR_MUSIC );
     setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
     setLampMode( LAMP_BEAR_MOUTH, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
+    bearSparkleStart();   // while waiting for the ball
     // thru...
   case BEAR_HOLD_OPEN:
     bearSetPulse(nonVolatiles.headOpen);
     setTimer(BEAR_TMR, HALF_SECOND, BEAR_HOLD_OPEN);  // keep open
     break;
-  case BEAR_CHEW:
-    cycles = 6;
-    // thru...
-  case BEAR_CHEW_1:
-    if ( cycles % 2 ) {
-      bearSetPulse(nonVolatiles.headClose);
-    } else {
-      bearSetPulse(nonVolatiles.headOpen);
-    }
-    if(--cycles) {
-      setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CHEW_1);
-    } else {
-      setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_EJECT);
-    }
+  case BEAR_CHEW:     // ball captured: chew, spit it out, close
+    bearAttackStart();
+    bearStep( BEAR_SEQ_CHEW, 0 );
     break;
-  case BEAR_EJECT:
-    bearSetPulse(nonVolatiles.headOpen);
-    setTimer(BEAR_TMR, HALF_SECOND, BEAR_EJECT_1);
-    break;
-  case BEAR_EJECT_1:
-    hitSolenoid( SOLENOID_BEAR_CAPTURE );
-    setTimer(BEAR_TMR, HALF_SECOND, BEAR_CLOSE);
+  case BEAR_EJECT:    // plain eject (tilt), to free a captured ball
+    bearStep( BEAR_SEQ_EJECT, 0 );
     break;
   case BEAR_TEST:
     setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_TEST);
     break;
   case BEAR_CLOSE:
+    bearMode = FALSE;
+    bearSparkleEnd();
+    bearAttackEnd( gameOn && !tilt );
     // the backbox bear chase ends with the bear mode
     cancelTimer( BOX_TMR );
     // lamps only during play. gameOver() and a tilt also close the bear,
@@ -761,6 +942,9 @@ void startGame(void)
   gameOn = TRUE;
   highScoreExceeded = FALSE;
   freeCreditPending = FALSE;
+  bearAttack = FALSE;
+  bearMode = FALSE;
+  bearSparkleEnd();
   ballInPlay = 0;
   multiplier = 1;
   crazyMode = FALSE;
@@ -838,6 +1022,9 @@ void gameOver(void)
 
   gameOn = FALSE;
   freeCreditPending = FALSE;
+  bearAttack = FALSE;   // gameOver() sets its own lamps, nothing to restore
+  bearMode = FALSE;
+  bearSparkleEnd();
   // a game ended from the door menu while tilted would otherwise leave
   // tilt set in attract mode, where it blocks the start button
   tilt = FALSE;
@@ -867,7 +1054,7 @@ void gameOver(void)
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
   attractLastState = 0xFFFF;   // start the attract animations fresh
-  // hold on "GameOver" and the final score while the game over music plays.
+  // hold on "Game" "Over" and the final score while the game over music plays.
   // attract (display and lamp shows) starts once it finishes.
   endScoreShown = FALSE;
   cancelTimer(ATTRACT_LAMP_TMR);
@@ -1052,7 +1239,7 @@ void doorMenu(slowSwitch sw)
           if (nonVolatiles.volume<2) {
             nonVolatiles.volume++;
             if ( nonVolatiles.volume > 1 ) {
-              playMusic( SOUND_MAIN_MUSIC );
+              playMusic( gameMusic() );
             }
           }
           break;
