@@ -28,7 +28,7 @@ void driveFastSwitches(void) {
   uint16_t time = getSysTime();
   
   uint8_t pop = ~read( FASTSWITCH_BUMPER_PIN, FASTSWITCH_BUMPER_MASK );
-  if ( !gameOn ) pop = 0;
+  if ( !gameOn || tilt ) pop = 0;   // pops are dead when tilted, like the flippers
 
   if ( pop & FASTSWITCH_POP_BUMPER_UPPER ) {
     if( !isSolenoidOn(SOLENOID_POP_BUMPER_UPPER) ) {

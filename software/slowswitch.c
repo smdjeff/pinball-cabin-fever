@@ -267,7 +267,9 @@ switchReturn_t targetSnakeTrig(slowSwitch theSwitch, boolean active)
 
 switchReturn_t bearCaptureTrig(slowSwitch theSwitch, boolean active)
 {
+  // still active when tilted so the ball gets ejected, but no score
   setTimer(BEAR_TMR, EIGTH_SECOND, BEAR_CHEW);
+  if ( tilt ) return (switchReturn_t){ 0, 0 };
   return (switchReturn_t){ SCORE_FIVE_THOUSAND, SOUND_BEAR_CHEW };
 }
 
@@ -292,6 +294,15 @@ switchReturn_t startTrig(slowSwitch theSwitch, boolean active)
 
 switchReturn_t drainTrig(slowSwitch theSwitch, boolean active)
 {
+  // a tilted ball always ends. tilting within 2 s of a ball load left
+  // ballIsLoading set (GAME_TILT replaced the GAME_SCORE step that clears
+  // it), so the drain was treated as a failed launch and the same ball was
+  // served again with tilt still on and the flippers dead.
+  if ( tilt ) {
+    nextBall();
+    return (switchReturn_t){0,0};
+  }
+
   // hit the loader again (possibly a retry)   
   setTimer(GAME_TMR, ONE_HUNDRETH_SECOND, GAME_BALL_LOAD);
 

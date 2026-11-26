@@ -533,7 +533,10 @@ void gameTimer(timerEvent id, uint16_t state)
     break;
   case GAME_TILT:
     scoreDisplayDisabled = TRUE;
-    setTimer(BEAR_TMR, ONE_SECOND, BEAR_CLOSE); //BEAR_EJECT
+    // eject rather than just close: if a ball was being chewed when the
+    // game tilted, closing would trap it in the bear and the game could
+    // never continue. an eject with no ball just kicks the empty capture.
+    setTimer(BEAR_TMR, ONE_SECOND, BEAR_EJECT);
     for (int i=0; i<=LAMP_LAST; i++) {
       setLampMode( i, LAMP_OFF_STATE, 0, INFINITE );
     }
@@ -623,12 +626,13 @@ void startGame(void)
 
   cancelTimer(ATTRACT_TMR);
   cancelTimer(ATTRACT_LAMP_TMR);
-  setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
-  setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
-
+  // all lamps off first. this loop used to run after the start button was
+  // lit, so the start button lamp was always off during a game.
   for (uint8_t i=0; i<LAMP_QTY; i++) {
     setLampMode(i, LAMP_OFF_STATE, 0, 1);
   }
+  setLampMode( LAMP_BACKBOX_GAME_OVER, LAMP_OFF_STATE, 0, INFINITE );
+  setLampMode( LAMP_START_BUTTON, LAMP_ON_STATE, 0, INFINITE );
 
   nextBall();
 }
@@ -679,13 +683,21 @@ void nextBall(void)
 void gameOver(void)
 {
   if ( highScoreExceeded ) {
+    // clear it so another gameOver() (door menu escape in attract)
+    // doesn't award the free game and count the stat again
+    highScoreExceeded = FALSE;
     nonVolatiles.freeGameHighScore++;
     increaseCredits( nonVolatiles.coinsPerGame, FALSE );
     nonVolatiles.highScore = score;
-    saveNonVolatiles();
   }
+  // save every game so the games played stat isn't lost at power off.
+  // saveNonVolatiles() only writes bytes that changed.
+  saveNonVolatiles();
 
   gameOn = FALSE;
+  // a game ended from the door menu while tilted would otherwise leave
+  // tilt set in attract mode, where it blocks the start button
+  tilt = FALSE;
 
   flipperEnableSolenoids( false );
   allSolenoidsOff();
@@ -702,6 +714,7 @@ void gameOver(void)
   setLampMode( LAMP_START_BUTTON, LAMP_BLINK_STATE, HALF_SECOND, INFINITE );
     
   cancelTimer(CRAZY_TMR);
+  cancelTimer(SPIN_TMR);
   cancelBoxTimer();
   setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_CLOSE);
   setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);
@@ -723,12 +736,11 @@ void increaseCredits(uint8_t value, boolean coinMode)
 
 boolean decreaseCredits(void)
 {
-  nonVolatiles.gamesPlayed++;
-  
   if ( credits < nonVolatiles.coinsPerGame ) 
     return FALSE;
   
   credits -= nonVolatiles.coinsPerGame;
+  nonVolatiles.gamesPlayed++;   // was counted even when there weren't enough credits
   return TRUE;
 }
 
@@ -778,7 +790,7 @@ void saveNonVolatiles(void)
 {
   nonVolatiles.checkSum = 
       checkCalc( 0, (uint8_t*)&nonVolatiles, sizeof(nonVolatiles) - sizeof(nonVolatiles.checkSum ) );
-  eeprom_write_block( (uint8_t*)&nonVolatiles, (uint8_t*)0, sizeof(nonVolatiles) );
+  eeprom_update_block( (uint8_t*)&nonVolatiles, (uint8_t*)0, sizeof(nonVolatiles) );
 }
 
 
