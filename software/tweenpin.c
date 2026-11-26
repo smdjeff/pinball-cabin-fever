@@ -382,16 +382,16 @@ void attractTimer(timerEvent id, uint16_t state)
     setTimer(ATTRACT_TMR, FIVE_SECONDS, ATTRACT_HIGH_SCORE);
     break;
   case ATTRACT_HIGH_SCORE:
-    displayText( "High Score" );
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_HIGH_SCORE_1);
+    displayText( "High Score" );  // scrolls, give it time to finish
+    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_HIGH_SCORE_1);
     break;
   case ATTRACT_HIGH_SCORE_1:
     displayText( "%ld", nonVolatiles.highScore );
     setTimer(ATTRACT_TMR, THREE_SECONDS, ATTRACT_GAME_OVER);
     break;
   case ATTRACT_GAME_OVER:
-    displayText( "GameOver" );
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_CREDITS);    
+    displayText( "GameOver" );  // scrolls, give it time to finish
+    setTimer(ATTRACT_TMR, TWO_SECONDS, ATTRACT_CREDITS);    
     break;
   case ATTRACT_CREDITS:
     if ( nonVolatiles.coinsPerGame > 0 ) {

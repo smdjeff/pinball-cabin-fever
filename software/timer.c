@@ -121,6 +121,7 @@ void driveTimers(void)
           case BOX_TMR:          cb=boxTimer; break;
           case MUSIC_TMR:        cb=musicTimer; break;
           case WATCHDOG_TMR:     cb=watchdogTimer; break;
+          case DISPLAY_TMR:      cb=displayScrollTimer; break;
         }
         if (cb) cb( i, tmr->data );
       }

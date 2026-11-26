@@ -44,50 +44,99 @@ uint8_t displayChar(char ch, uint8_t x0, uint8_t y0) {
   return 0;
 }
 
-static uint8_t view_x = 0;
-static uint8_t view_y = 0;
+// the display is LED_BACKPACKS 8x8 panels side by side. column 0 is the
+// right most, so x counts up to the left.
+#define DISPLAY_WIDTH        (LED_BACKPACKS*LED_COLUMNS)
+#define DISPLAY_DEFAULT_Y    1
+#define SCROLL_START_PAUSE   HALF_SECOND
+#define SCROLL_STEP          FIVE_HUNDRETH_SECONDS
 
+static int8_t view_x = 0;           // + moves text right, - moves it left
+static int8_t view_y = DISPLAY_DEFAULT_Y;
+static bool   viewSet = false;      // caller set the view for the next text
+
+static char    text[24];
+static int16_t textWidth = 0;
+static int16_t scroll = 0;
+
+// position the next displayText() call. used by animations, which redraw
+// the text themselves, so text drawn with an explicit view never auto scrolls.
+// the view only applies to the next displayText() call.
 void displayView(uint8_t x, uint8_t y) {
-  view_x = x;
-  view_y = y;
+  view_x = (int8_t)x;
+  view_y = (int8_t)y;
+  viewSet = true;
 }
 
-static int display_putchar_printf(char ch, FILE *stream) {
-    static uint8_t x0 = 0;
-    static uint8_t y0 = 0;
-    uint8_t w = displayChar( ch, x0-view_x, y0+view_y );
-    if ( ch == '\n' ) {
-      ht16k33DisplayFrame();
-      x0 = (LED_BACKPACKS*LED_COLUMNS);
-    } else {
-      x0 -= w;
-      for (int y=0; y<LED_ROWS; y++) {
-          ht16k33DrawPixel( x0-view_x, y, 0 );
+static int16_t measureText( const char *s ) {
+  int16_t w = 0;
+  for ( ; *s; s++ ) {
+    font_t *f = findChar( *s, (font_t*)font_d3, sizeof(font_d3) );
+    if ( f ) w += f->width + 1;   // character plus one blank column
+  }
+  return w ? w - 1 : 0;
+}
+
+// draws text with its left edge shifted 'left' columns to the left
+static void drawText( const char *s, int16_t left, int8_t down ) {
+  ht16k33ClearFrame();
+  int16_t x0 = DISPLAY_WIDTH - 1 + left;   // left most column of this character
+  for ( ; *s; s++ ) {
+    font_t *f = findChar( *s, (font_t*)font_d3, sizeof(font_d3) );
+    if ( !f ) continue;
+    for ( int16_t x = 0; x < f->width; x++ ) {
+      int16_t px = x0 - x;
+      if ( px < 0 || px >= DISPLAY_WIDTH ) continue;
+      for ( int16_t y = 0; y < f->height; y++ ) {
+        int16_t py = down + y;
+        if ( py < 0 || py >= LED_ROWS ) continue;
+        ht16k33DrawPixel( px, py, f->data[ (y*f->width) + x ] );
       }
-      x0 -= 1;
     }
-    return 0;
+    x0 -= f->width + 1;
+  }
+  ht16k33DisplayFrame();
 }
 
+// shows text. text wider than the display scrolls left after a short pause,
+// stopping when its end reaches the right edge.
 void displayText(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  clearDisplay();
-  vprintf(fmt, args);
+  vsnprintf( text, sizeof(text), fmt, args );
   va_end(args);
-  printf("\n");
+
+  cancelTimer( DISPLAY_TMR );
+  textWidth = measureText( text );
+
+  if ( viewSet ) {
+    viewSet = false;
+    drawText( text, -view_x, view_y );
+    return;
+  }
+
+  scroll = 0;
+  drawText( text, 0, DISPLAY_DEFAULT_Y );
+  if ( textWidth > DISPLAY_WIDTH ) {
+    setTimer( DISPLAY_TMR, SCROLL_START_PAUSE, 0 );
+  }
+}
+
+void displayScrollTimer(timerEvent id, uint16_t state) {
+  scroll++;
+  drawText( text, scroll, DISPLAY_DEFAULT_Y );
+  if ( scroll < textWidth - DISPLAY_WIDTH ) {
+    setTimer( DISPLAY_TMR, SCROLL_STEP, 0 );
+  } else {
+    cancelTimer( DISPLAY_TMR );
+  }
 }
 
 void clearDisplay(void) {
+    cancelTimer( DISPLAY_TMR );
     ht16k33Clear();
 }
 
 void initDisplay(void) {
-    displayView( 0, 0 );
     ht16k33Init();
-    printf("\n");
-    
-    // hook stdio printf() to the led matrix
-    static FILE mystdout = FDEV_SETUP_STREAM(display_putchar_printf, NULL, _FDEV_SETUP_WRITE);
-    stdout = &mystdout;
 }

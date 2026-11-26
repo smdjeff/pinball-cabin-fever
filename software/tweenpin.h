@@ -165,6 +165,7 @@ typedef enum {
   BOX_TMR,
   MUSIC_TMR,
   WATCHDOG_TMR,
+  DISPLAY_TMR,
   TIMER_QTY,
 } timerEvent;
 
@@ -338,12 +339,14 @@ void driveLampISR(void);
 #define LED_ROWS        8
 void ht16k33Init(void);
 void ht16k33Clear(void);
+void ht16k33ClearFrame(void);
 void ht16k33DisplayFrame(void);
 void ht16k33DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 void initDisplay(void);
 void clearDisplay(void);
 void displayText(const char *fmt, ...);
 void displayView(uint8_t x, uint8_t y);
+void displayScrollTimer(timerEvent id, uint16_t state);
 
 //////////////////////////////////
 // sounds

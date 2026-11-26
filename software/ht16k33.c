@@ -83,6 +83,15 @@ static void resetBackpack( uint8_t addr, uint16_t color )
   i2cStop();
 }
 
+// clears the frame buffer only. draw, then ht16k33DisplayFrame() to show it.
+// unlike ht16k33Clear() this doesn't blank the panels first, so redrawing
+// (scrolling) doesn't flicker.
+void ht16k33ClearFrame(void)
+{
+  memset(column_red, 0x00, sizeof(column_red));
+  memset(column_green, 0x00, sizeof(column_green));
+}
+
 void ht16k33Clear(void) 
 {
   memset(column_red, 0x00, sizeof(column_red));
