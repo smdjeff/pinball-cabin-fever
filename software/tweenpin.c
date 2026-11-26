@@ -357,9 +357,15 @@ void attractTimer(timerEvent id, uint16_t state)
 
   switch(state) {
   case ATTRACT_PLAY:
-    displayText("play");
-    setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PINBALL);
-    cycles = 0;
+    if(cycles == 0) cycles =80;
+    if(--cycles) {
+      displayView( cycles-80, 1 );
+      displayText("Cabin Fever");
+      setTimer(ATTRACT_TMR, ONE_HUNDRETH_SECOND, ATTRACT_PLAY);    
+    } else {
+      cycles = 0;
+      setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_PINBALL);
+    }
     break;
   case ATTRACT_PINBALL:
     if(cycles == 0) cycles = 8;
@@ -376,7 +382,7 @@ void attractTimer(timerEvent id, uint16_t state)
     setTimer(ATTRACT_TMR, FIVE_SECONDS, ATTRACT_HIGH_SCORE);
     break;
   case ATTRACT_HIGH_SCORE:
-    displayText( "hi score" );
+    displayText( "High Score" );
     setTimer(ATTRACT_TMR, ONE_SECOND, ATTRACT_HIGH_SCORE_1);
     break;
   case ATTRACT_HIGH_SCORE_1:
@@ -472,10 +478,6 @@ void spinTimer(timerEvent id, uint16_t state)
   static uint8_t countDown = 0;
   static uint8_t count = 0;
   
-  if ( (state==0) && (countDown==0) ) {
-    playSound( SOUND_SPINNER );
-  }
-  
   if ( state > 0 ) {
     if ( countDown < 4 ) {
       countDown++;
@@ -505,7 +507,7 @@ void gameTimer(timerEvent id, uint16_t state)
   switch(state) {
   case GAME_BALL_LOAD:
     ballIsLoading = TRUE;
-    playSound( SOUND_MAIN_MUSIC );
+    playMusic( SOUND_MAIN_MUSIC );
     hitSolenoid( SOLENOID_BALL_LOADER );
     displayText( "ball %d", ballInPlay );
     setTimer(GAME_TMR, TWO_SECONDS, GAME_SCORE);
@@ -557,7 +559,7 @@ void bearTimer(timerEvent id, uint16_t state)
   switch(state) {
   case BEAR_OPEN:
     playSound( SOUND_BEAR_OPEN );
-    playSound( SOUND_BEAR_MUSIC );
+    playMusic( SOUND_BEAR_MUSIC );
     setLampMode( LAMP_BEAR_ARROW, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
     setLampMode( LAMP_BEAR_MOUTH, LAMP_BLINK_STATE, EIGTH_SECOND, INFINITE );
     // thru...
@@ -598,7 +600,7 @@ void bearTimer(timerEvent id, uint16_t state)
     for(int i = LAMP_TARGET_1_B; i <= LAMP_TARGET_1_R; i++) {
       setLampMode(i, LAMP_BLINK_ON_STATE, EIGTH_SECOND, INFINITE);
     }
-    if (!tilt) { playSound( SOUND_MAIN_MUSIC ); }
+    playMusic( SOUND_MAIN_MUSIC );
     // thru...
   case BEAR_HOLD_CLOSE:
   default:
@@ -711,7 +713,6 @@ void increaseCredits(uint8_t value, boolean coinMode)
   credits += value;
   if  (credits > 99) credits = 99;
   if (coinMode ) {
-    hitSolenoid( SOLENOID_WOODBLOCK );
     setIfActiveTimer(ATTRACT_TMR, ATTRACT_CREDITS_1);  
   }
 }
@@ -747,10 +748,9 @@ void resetNonVolatiles(void)
     .highScore = 50000,
     .headOpen = 20,
     .headClose = 25,
-    .quiteMode = 1,
+    .volume = 2,
     .tiltSensitivity = 3,
     .ballsPerGame = 3,
-    .soundBoard = 1,
     .coinsPerGame = 0,
     .gamesPlayed = 0, // stats
     .freeGameMatch = 0, // stats
@@ -785,6 +785,7 @@ void displayScore(uint8_t color)
 
   char s[12] = {0,};
   sprintf(s,"%ld", score);
+  displayView( 0, 1 );
   displayText("%6s", s);
 }
 
@@ -819,22 +820,20 @@ void increaseScore(uint16_t value)
 }
 
 
-void configMode(slowSwitch sw)
+void doorMenu(slowSwitch sw)
 {
   typedef enum {
-    modeNone = 0,
-    modeBalls = 1,
-    modeCoins = 2,
-    modeStats_1 = 3,
-    modeStats_2 = 4,
-    modeStats_3 = 5,
-    modeQuiet = 6,
-    modeSound = 7,
-    modeTiltSensitivity = 8,
-    modeHeadOpen = 9,
-    modeHeadClose = 10,
-    modeReset = 11,
-    maxModes = 11
+    modeNone,
+    modeBalls,
+    modeCoins,
+    modeStats_1,
+    modeStats_2,
+    modeStats_3,
+    modeTiltSensitivity,
+    modeHeadOpen,
+    modeHeadClose,
+    modeReset,
+    modeMax
   } configModes_t;
   
   static configModes_t mode = 0;
@@ -847,7 +846,7 @@ void configMode(slowSwitch sw)
         cancelTimer(ATTRACT_LAMP_TMR);
         cancelTimer(GAME_TMR);
       } 
-      if ( ++mode > maxModes ) {
+      if ( ++mode >= modeMax ) {
         mode = 1;
       }
       break;
@@ -858,6 +857,14 @@ void configMode(slowSwitch sw)
       break;
     case SWITCH_TEST_PLUS:
       switch(mode) {
+        case modeNone:
+          if (nonVolatiles.volume<2) {
+            nonVolatiles.volume++;
+            if ( nonVolatiles.volume > 1 ) {
+              playMusic( SOUND_MAIN_MUSIC );
+            }
+          }
+          break;
         case modeHeadOpen:
           if (nonVolatiles.headOpen<31)
             nonVolatiles.headOpen++;
@@ -865,13 +872,6 @@ void configMode(slowSwitch sw)
         case modeHeadClose:
           if (nonVolatiles.headClose<31)
             nonVolatiles.headClose++;
-          break;
-        case modeQuiet:
-          if (nonVolatiles.quiteMode<2)
-            nonVolatiles.quiteMode++;
-          break;
-        case modeSound:
-          nonVolatiles.soundBoard = 1;
           break;
         case modeTiltSensitivity:
           if (nonVolatiles.tiltSensitivity<99)
@@ -895,6 +895,14 @@ void configMode(slowSwitch sw)
       break;
     case SWITCH_TEST_MINUS:
       switch(mode) {
+        case modeNone:
+          if (nonVolatiles.volume>0) {
+            nonVolatiles.volume--;
+            if ( nonVolatiles.volume < 2 ) {
+              playMusic( SOUND_STOP );
+            }
+          }
+          break;
         case modeHeadOpen:
           if (nonVolatiles.headOpen>15)
             nonVolatiles.headOpen--;
@@ -902,13 +910,6 @@ void configMode(slowSwitch sw)
         case modeHeadClose:
           if (nonVolatiles.headClose>15)
             nonVolatiles.headClose--;
-          break;
-        case modeQuiet:
-          if (nonVolatiles.quiteMode>0)
-            nonVolatiles.quiteMode--;
-          break;
-        case modeSound:
-          nonVolatiles.soundBoard = 0;
           break;
         case modeTiltSensitivity:
           if (nonVolatiles.tiltSensitivity > 1)
@@ -931,42 +932,39 @@ void configMode(slowSwitch sw)
   } 
 
   switch(mode) {
+    case modeNone:
+      displayText("Vol %d", nonVolatiles.volume );
+      break;
     case modeHeadOpen:
       bearSetPulse( nonVolatiles.headOpen );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
-      displayText("hdo %04d", nonVolatiles.headOpen );
+      displayText("Br.O %04d", nonVolatiles.headOpen );
       break;
     case modeHeadClose:
       bearSetPulse( nonVolatiles.headClose );
       setTimer(BEAR_TMR, QUARTER_SECOND, BEAR_TEST);
-      displayText("hdc %04d", nonVolatiles.headClose );
-      break;
-    case modeQuiet:
-      displayText("quiet %d", nonVolatiles.quiteMode );
+      displayText("Br.C %04d", nonVolatiles.headClose );
       break;
     case modeTiltSensitivity:
-      displayText("tilty %d", nonVolatiles.tiltSensitivity );
+      displayText("TiltS %d", nonVolatiles.tiltSensitivity );
       break;
     case modeBalls:
-      displayText("balls %d", nonVolatiles.ballsPerGame );
-      break;
-    case modeSound:
-      displayText("sound %d", nonVolatiles.soundBoard );
+      displayText("Balls %d", nonVolatiles.ballsPerGame );
       break;
     case modeCoins:
-      displayText("coins %d", nonVolatiles.coinsPerGame );
+      displayText("Coins %d", nonVolatiles.coinsPerGame );
       break;
     case modeStats_1:
-      displayText("plays %d", nonVolatiles.gamesPlayed );
+      displayText("Plays %d", nonVolatiles.gamesPlayed );
       break;
     case modeStats_2:
-      displayText("fghs %d", nonVolatiles.freeGameHighScore );
+      displayText("F.High %d", nonVolatiles.freeGameHighScore );
       break;
     case modeStats_3:
-      displayText("fgma %d", nonVolatiles.freeGameMatch );
+      displayText("F.Matc %d", nonVolatiles.freeGameMatch );
       break;
     case modeReset:
-      displayText("reset");
+      displayText("RESET");
       break;
     default:
       break;
