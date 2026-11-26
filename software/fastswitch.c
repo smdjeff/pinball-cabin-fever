@@ -13,8 +13,8 @@ void driveFastSwitches(void) {
   const uint8_t hit = 80;
   const uint8_t hold = 5;
 
-  // flippers are hit with 80% power for about 1/8 second, then drop to 5%
-  // while held to keep from overheating. a new flip needs the button to
+  // flippers are hit with 80% power for about 130 ms (FLIPPER_HIT_TIME),
+  // then drop to 5% while held to keep from overheating. a new flip needs the button to
   // have been released for FLIPPER_REARM, which ignores release bounce
   // without blocking quick re-flips.
   const uint16_t FLIPPER_HIT_TIME = EIGTH_SECOND;

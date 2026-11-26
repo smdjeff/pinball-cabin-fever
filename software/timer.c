@@ -42,13 +42,14 @@ void bearSetPulse(uint8_t pulse)
 void flipperInitPulse(void) {
   high(  SOLENOID_FLIPPER_DDR, SOLENOID_FLIPPER_MASK );
   output( SOLENOID_FLIPPER_DDR, SOLENOID_FLIPPER_MASK );
-  TCCR2A = _BV(COM2A1)|_BV(COM2B1); // Clear OC2A/B on Compare Match, set OC2A/B at BOTTOM
+  TCCR2A = _BV(COM2A1)|_BV(COM2B1); // non-inverting: clear OC2A/B on compare match up-counting, set down-counting
   TCCR2A |= _BV(WGM20);  // phase correct pwm mode, TOP=0xFF (for lower noise)
+  // phase correct pwm frequency = F_CPU / (prescaler * 510)
   // higher frequencies are less audible, but may cause the FET to stay in the
   // transition zone and overheat.
-  // TCCR2B = _BV(CS02)|_BV(CS00); // 128 prescaller ( ~500Hz)
-  TCCR2B = _BV(CS02)|_BV(CS01); // 256 prescaller ( ~250Hz)
-  // TCCR2B = _BV(CS02)|_BV(CS01)|_BV(CS00); // 1024 prescaller ( ~61Hz)
+  // TCCR2B = _BV(CS02)|_BV(CS00); // 128 prescaller ( ~245Hz)
+  TCCR2B = _BV(CS02)|_BV(CS01); // 256 prescaller ( ~122Hz)
+  // TCCR2B = _BV(CS02)|_BV(CS01)|_BV(CS00); // 1024 prescaller ( ~31Hz)
 }
 
 static bool flipEnabled = false;
